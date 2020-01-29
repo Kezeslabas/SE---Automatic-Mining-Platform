@@ -1,16 +1,25 @@
-﻿//Automatic Mining Platform v3.7 by Kezeslabas                        Updated up until Space Engineers v1.191.107
+//Automatic Mining Platform v3.712 by Kezeslabas                        Updated up until Space Engineers v1.193.1
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //  This script manages a Rotor, Pistons and Drills to create an Automatic Mining Platform.
+//  It has multiple additional features to allow the build of advanced mining systems.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Change Log (v3.7):      - Th Configuration now happens trough the Programmable Block's Custom Data
-//                                              - Every Configuration option is now visible and can be modified in the Custom Data.
-//                                              - They will be loaded to the script if you click Check Code, the game Saves/Loads
-//                                                 and when the "Set" or "Refresh" command is used.
-//                                              - Configuration inside the script is now obsolote, the Costum Data will always overwrites it.
-//                                              - This way you can configure the script if you are using it on a server that has whitelist for scripts.
-//                                    - Fixed crash with Show Advanced Data if it's enabled but the system is not ready.
-//                                    - Changed the Description inside the script to match the new configuration method.
+//Hotfix (v3.712): Fixed the issue with the Antenna, and the Transmitting Progression feature is enabled again.
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Hotfix (v3.711): Transmitting Progression feature is temporary disabled, due to missing property
+//                         of the Antenna in Space Engineers update v1.193.1
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Change Log (v3.71):     - Minor changes to how to transmitt the progression
+//                                             - The Antenna Message Receiver script got updated (Now it can both send & receive)
+//                                                     -The link is still the same: https://steamcommunity.com/sharedfiles/filedetails/?id=1705183500
+//                                             - The guide on how to transmit the progression has been updated accordingly.
+//                                                     - Now you have to add the Main Tag of this script to the name of the LCD that
+//                                                        you want to use on the orther grid.
+//                                                     - Also, you doesn't have to add the LCD to the Receiver script anymore,
+//                                                        it will tries to find it by the Main Tag of this script.
+//                                                     - The address of the Receiver script is automatically written out to it's Custom Data,
+//                                                        so you doesn't have to use the "get address" command anymore.
+//                                                     - You still have to start the listening with the "start" command on the Recevier end.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //QUICK SETUP
@@ -141,13 +150,15 @@
 //                  - If you want to Broadcast the Progression to another Grid:
 //                              - You need an Antenna properly renamed in the grid for this feature to function.
 //                              - Also, you'll need a receiver in the other grid.
-//                                  - Use my script called Antenna Message Receiver by Kezeslabas for that.
+//                                  - Use my script called Antenna Message Sender & Receiver by Kezeslabas for that.
 //                                      - Workshop Link: https://steamcommunity.com/sharedfiles/filedetails/?id=1705183500
-//                                      - Set it up, by adding an LCD/Text Panel to it, then start it with the "Start" command.
-//                                      - It will starts Listening to broadcasts.
-//                                      - Then, run that script with the "Get Address" command as argument.
-//                                      - This will writes out an Address to that block's Custom Data.
-//                                      - Copy that Address and make the Transmission Receiver Address in this block's Custom Data equal to it.
+//                                         - Load it to a Programmable Block and click Check Code
+//                                         - Run it with the "start" argument to start listening for messages.
+//                                         - Add the Main Tag of this mining script to an LCD's name in the Receiver grid
+//                                             - Run the Receiver script with the "refresh" argument
+//                                         - Open the Custom Data of the Receiver's Programmable Block
+//                                             - Copy the Address of that block to this block's Custom Data, to the Transmission Receiver Address
+//                                             - Run this script with the "refresh" command
 //                              - Make sure, that the connected Antenna's range is large enough to reach the Antenna in the Receiver's grid.
 //                              - It's Done!
 
@@ -352,21 +363,7 @@
 //      You may use any number of Vertical and Horizontal Pistons.
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Some Other Comstumizable Variables
-
-////////////////////////////////////////
-//Block Tags
-string vp_tag="/Ver/";
-string hp_tag="/Hor/";
-
-//Inverse Tag
-string inv_tag="/Inv/";
-
-//Timer Advanced Tag
-string adv_tag="/Adv/";
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //DO NOT MODIFY ANYTHING BELOW THIS
-//(Unless you know what are you doing)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Configuration variables
 string main_tag="/Mine 01/";
@@ -409,7 +406,18 @@ string[] data;
 string message="";
 string status="default";
 
+//Block Tags
+string vp_tag="/Ver/";
+string hp_tag="/Hor/";
+
+//Inverse Tag
+string inv_tag="/Inv/";
+
+//Timer Advanced Tag
+string adv_tag="/Adv/";
+
 int number = 0;
+
 string mode = "";
 int progress=0;
 int i=0,k=0,l=0,m=0;
@@ -1599,12 +1607,10 @@ public bool refresh_components()
     {
         Echo("Advanced Timer: Too Many Timers!");
     }
-
     if(l==1)
     {
         Echo("Antenna: Detected!");
         use_antenna=true;
-        antenna.AttachedProgrammableBlock=Me.EntityId;
         antenna.EnableBroadcasting=true;
     }
     else if(l>1)
