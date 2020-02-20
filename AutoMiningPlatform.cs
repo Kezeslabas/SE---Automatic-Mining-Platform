@@ -1,5 +1,6 @@
 //Automatic Mining Platform v3.712 by Kezeslabas                        Updated up until Space Engineers v1.193.1
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//GitHub Test
 
 //  This script manages a Rotor, Pistons and Drills to create an Automatic Mining Platform.
 //  It has multiple additional features to allow the build of advanced mining systems.
