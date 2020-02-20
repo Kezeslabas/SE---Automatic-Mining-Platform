@@ -1,2131 +1,2668 @@
-//Automatic Mining Platform v3.712 by Kezeslabas                        Updated up until Space Engineers v1.193.1
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//GitHub Test
-
-//  This script manages a Rotor, Pistons and Drills to create an Automatic Mining Platform.
-//  It has multiple additional features to allow the build of advanced mining systems.
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Hotfix (v3.712): Fixed the issue with the Antenna, and the Transmitting Progression feature is enabled again.
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Hotfix (v3.711): Transmitting Progression feature is temporary disabled, due to missing property
-//                         of the Antenna in Space Engineers update v1.193.1
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Change Log (v3.71):     - Minor changes to how to transmitt the progression
-//                                             - The Antenna Message Receiver script got updated (Now it can both send & receive)
-//                                                     -The link is still the same: https://steamcommunity.com/sharedfiles/filedetails/?id=1705183500
-//                                             - The guide on how to transmit the progression has been updated accordingly.
-//                                                     - Now you have to add the Main Tag of this script to the name of the LCD that
-//                                                        you want to use on the orther grid.
-//                                                     - Also, you doesn't have to add the LCD to the Receiver script anymore,
-//                                                        it will tries to find it by the Main Tag of this script.
-//                                                     - The address of the Receiver script is automatically written out to it's Custom Data,
-//                                                        so you doesn't have to use the "get address" command anymore.
-//                                                     - You still have to start the listening with the "start" command on the Recevier end.
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-//QUICK SETUP
-// 1.) Renaming
-// 2.) Basic Configuration
-// 3.) How to use
-// 4.) (Optional) Advanced Configuration
-// 5.) (Optional) Features
-
-///////////////////////
-// 1.) Renaming
-//     You'll have 2+1 things to do:
-
-//       1/1.) Rename the components of the platform that you want to use, so they'll contain the Main Tag.
-
-//                 Main Tag default: "/Mine 01/"
-//                 (You can change this in the Costum Data of the Programamble Block.)
-//                 (Use 2 "/" Character in order to make sure that your tag is unique.)
-
-//                  The Components of the platform:
-
-//                  Basic Components:
-//                      Advanced Rotor (Exactly 1)
-//                      Drill(s) (1 or more)
-//                      (Optional) Horizontal Piston(s) (0 or more)               <- The script works perfectly even if there is no Horizontal Piston 
-//                      (Optional) Vertical Piston(s) (0 or more)                   <- The script works perfectly even if there is no Vertical Piston
-//                                                                                         ( In fact, the script works without any pistons, it's just no point to do that. :D )
-
-//      Advanced Rotor
-//                  |
-//                 O = Horizontal Piston(s) = O
-//                                                            ||
-//                                                      Vertical
-//                                                     Piston(s)
-//                                                            ||
-//                                                        Drill(s)
-//
-
-//                  Advanced Components:
-//                      (Optional) LCD/Text Panel(s) (0 or more)               <- Displays the progression.
-//                      (Optional) Antenna (0 or 1)                                      <- Can broadcast the progression to another grid.
-//                      (Optional) Timer Block [Basic] (0 or 1)                   <- It is started when the mining is finished.   
-//                      (Optional) Cargo Module (0 or more)                      <- It can be any number of blocks that has inventory.
-//                                                                                                           Their filling % is gonna be displayed.
-//                                                                                                           Also, the Auto Stop/Start feature's gonna use these for reference if
-//                                                                                                           there is any Cargo Blocks added, instead of the Drills.
-//                      (Optional) Timer Block [Advanced] (0 or 1)             <- It's tarted when the Auto Pause applies.
-//                                                                                                           In addition to the Main Tag, add the "/Adv/" tag to it as well.
-//                      (Optional) Other LCD Block(s) (0 or more)              <- Blocks, like the Cockpit.                                            (NEW)
-//                                                                                                           In addition to the renaming:
-//                                                                                                           Write the "@Number MainTag" to the CustomData of the block,
-//                                                                                                           where the Number is the screen you want to use, starting from 0.
-//                                                                                                           Example: "@0 /Mine 01/"
-//                                                                                                           Always write it to a new line, and do not write 
-//                                                                                                           anything else to that line.
-//                                                                                                           After this, use the "Refresh" command on the Programmable Block,
-//                                                                                                           to apply it.
-
-//       1/2.) Add the correct Piston Tags to the names of the Hotizontal and Vertical Pistons 
-                        
-//                  Piston Tags:
-//                  Horizontal Piston(s): "/Hor/"
-//                  Vertical Piston(s): "/Ver/"
-
-//       1/2+1.) If you want to use a Vertical Piston in the opposite way, then add the Inverse Tag to it's name as well.
-
-//                  Inverse Tag: "/Inv/"
-
-//                  The Inverse mode for Horizontal Pistons is not available, but let me know if you would like it to be implemented.
-
-//////////
-//    Example component names:
-//              "Advanced Rotor/Mine 01/"
-//              "Drill/Mine 01/"
-//              "Corner LCD Top/Mine 01/"
-//              "Piston/Mine 01/Hor/"
-//              "Piston/Mine 01/Ver/"
-//              "Piston 2/Mine 01/Ver/Inv/"
-//              etc...
-
-//////////
-//Notes:
-//    The best ratios for the Horizontal Pistons/Drills (For Large Grid)
-//          - 1 Horizontal Piston
-//                      Resource efficient: 3 or more Drills
-//                      Fastest: 4 Drills
-//          - 2 Horizontal Pistons
-//                      Resource efficient: 5 or more Drills
-//                      Fastest: 8 Drills
-//          - 3 Horizontal Pistons
-//                      Resource efficient: 7 or more Drills
-//                      Fastest: 12 Drills
-
-//     If you have any other blocks outside of Pistons in the Horizontal axis, like a coveyor arm or some other structure, then
-//     check the 2.) Basic Configuration section.
-
-//    The larger your mining platform is, the higher the chance of that the Rotor is gonna act strangely. 
-//    The Rotor could stop for minutes, and turn with a realy slow rate, yet the values are set correctly.
-//    This is a game thing, not the script's doing. 
-
-//    The script handles 1 Mining Platform at a time.
-//    You can use multiple scripts in the same grid, if you change the Main Tag.
-//    Like "/Mine 02/", "/Mine 03/", etc...
-
-///////////////////////
-// 2.) Basic Configuration
-//      The system is optimized trough multiple tests, with stability and efficiency in mind.
-
-//      You can configure the script inside the Programmable Block's Custom Data.
-
-//                  - If you don't want to draw a full circle with the rotor:
-//                              - Change the Max or Min Rotor Angle.
-//                                  - Use numbers between -358 and 358. (It's for stability reasons...)
-//                                  - Make Sure that the Max is always bigger than the Min Rotor Angle!
-//                  - If you want to disable the Auto Pause/Start feature, or you want to costumize the Pausing and Starting thresholds:
-//                              - Change the Use Auto Pause to False, and change the High and the Low Cargo Threshold. 
-//                  - If you want to see additional information about the running on the LCDs and in the detailed info.
-//                              - Change the Show Advanced Data to True.
-//                                (It's not recommended for servers.)
-
-//                  - If you want to disable the Color Coding for the LCDs:
-//                              - Change the Use LCD Color Coding to False.
-//                  - If you want to disable the Share Inertia Tensor feature for Pistons and Rotors:
-//                              - Change the Use Share Inertia Tensor to False.
-//                  - If you want to disable the Dynamic Rotor Tensor feature:
-//                              - Change the Use Dynamic Rotor Inertia Tensor to False.
-
-//                  - If you want to Broadcast the Progression to another Grid:
-//                              - You need an Antenna properly renamed in the grid for this feature to function.
-//                              - Also, you'll need a receiver in the other grid.
-//                                  - Use my script called Antenna Message Sender & Receiver by Kezeslabas for that.
-//                                      - Workshop Link: https://steamcommunity.com/sharedfiles/filedetails/?id=1705183500
-//                                         - Load it to a Programmable Block and click Check Code
-//                                         - Run it with the "start" argument to start listening for messages.
-//                                         - Add the Main Tag of this mining script to an LCD's name in the Receiver grid
-//                                             - Run the Receiver script with the "refresh" argument
-//                                         - Open the Custom Data of the Receiver's Programmable Block
-//                                             - Copy the Address of that block to this block's Custom Data, to the Transmission Receiver Address
-//                                             - Run this script with the "refresh" command
-//                              - Make sure, that the connected Antenna's range is large enough to reach the Antenna in the Receiver's grid.
-//                              - It's Done!
-
-//                  - If you want to use Non-Piston Blocks in the Horizontal Arm:
-//                              - Change the Non-Piston Blocks in Rotating Arm in Meters.
-//                                  - A Large grid block counts as 2.5 Meters. 
-//                                  - The default value is 5, which represents the two Conveyor Blocks that's normaly there.
-//                  - If you want to use unique extension/retraction distances for the pistons:
-//                              - Change the Vertical Piston Step Length.
-//                              - Change the Use Unique Horizontal Step Length to True, then change the Horizontal Pistons Step Length.
-//                                  - Both Step Lengths are accumulated values.
-//                   - If you want to retract the Horizontal Pistons before a Vertical Extension would take place.
-//                              - Change the Retract Horizontal Piston before Vertica Step to True.
-
-//      If you did something wrong, you will see the "Configuration Error!" message.
-//      You will also see some information about what you did wrong in the detailed info of the programmable block.
-
-//      You can reset the script and the configuration if you 
-//      delete the Custom Data and reload the script fom the workshop.
-
-///////////////////////
-// 3.) How to use
-///////////
-//  3/1.  Set
-//  3/2. Start
-//  3/3. Pause
-//  3/4. Refresh
-//  3/5. Advanced Set
-//  3/6. Troubleshooting
-
-// - 3/1.) Set
-//            Run the script with the "Set" argument.
-
-//            This will gather info about the components and resets some values.
-//            Also, it tries to align the rotor and the pistons to a Starting Position.
-//            The gathered information will be displayed in the programmable block's detailn info.
-//            Also, there's gonna be some other useful information, like the estimated time to finish. 
-//                  ( It's just an estimate, not a fully acurate number. )
-
-//            Check the detailed info if the system recognized the correct number of components.
-
-//            If it did, and you are seeing the "System: Ready to Start!" message, then you can proceed to section 3/2.) Start.
-//                  ( Even if the pistons and the rotor are still moving. )
- 
-//            If you see the "System: Not Ready!" message, then read section - 3/6.) Troubleshooting.
-
-// - 3/2.) Start
-//            Run the script with the "Start" argument.
-
-//            This will starts the mining sequence.
-//                  (It waits until the pistons and the rotor have reached the Starting Position)
-//            You can find information about the system and progression in the detailed info of the Programmable Block.
-
-//            If the mining sequence is finished, then you'll see the "Mining Completed!" message there.
-//            After the mining is finished, the Pistons are gonna be retracted and the Drills are gonna stop.
-//            Also, the script stops running as well.
-
-// - 3/3.) Pause
-//            Run the script with the "Pause" argument.
-
-//            This will pauses the Mining Sequence and stops the script as well.
-//            You can continue the Mining Sequence by running the script with the "Start" argument again.
-
-// - 3/4.) Refresh
-//            Run the script with the "Refresh" argument.
-
-//            This will refreshes the changing data and the Components of the system.
-//            It will writes a summary about it in to the detailed info as well.
-
-//            You can use the "Refresh" command while the script runs.
-
-//            If you want to add an Advanced Component, like an LCD Panel or a Cargo Container, while the script runs or 
-//            while it's paused, you can do it by renaming it proeprly, then use the "Refresh" command.
-//            The list of Components will be refreshed and the added block will become functional.
-
-//            You can safely remove an Advanced Component, by pausing the Script, removing the Main Tag from it's name, 
-//            then using the "Refresh" command.
-//            If you remove a Component, while the script runs, then it could crash.
-//            If
-//            If it does, then recompile the script, to make it functional again.
-
-//            Do not add a new Basic Component by using "Refresh", unless you are at Step 0.
-
-// - 3/5.) Advanced Set
-//            You can use the "Set" command with an extension, to set the system a to a specific step of the Mining Sequence.
-
-//             With the default settings, there are 40 Steps that the system goes trough until it finishes.
-//                 (This max step changes, depeneding on how many pistons and drills are you using.)
-
-//             Step: 0 - Aligns the rotor and the pistons to a starting position.
-//             Step: Odd Number - Rotates the rotor (You can't Advanced Set and Odd Number)
-//             Step: Even Number - Extends/Retracts piston(s) 
-//             Step: Last Step - Retracts the piston(s) and turns the drill(s) off.
-
-//             To set the system to Step: 12, then use the "Set;12" as argument.
-//             You can only Set the System with an Even number. 
-//             I disabled the Odd Numbers, because it's hard to predict what's going to happend if you Set one, unless 
-//             you exactly know, how the script is working.
-
-//             If you want to rotate the Rotor for some reason, then Pause the system and rotate it manually. 
-
-// - 3/6.) Troubleshooting
-
-//            If you are seeing the "System: Not Ready!" message:
-//              - Check if you have all the components in the grid, and you've renamed them in the right way.
-//                      You can find information about them in the detailed info of the programmable block.
-//                      If the detailed info is disappeared, you can use the "Refresh" command to write it out again.
-//              - If every block is renamed correctly, then use the "Set" command again to check it.
-//           If the "System: Not Ready!" message still appeares:
-//              - Click Recomplie in the programmable block, the use the "Set" command again. 
-
-//            If you are seeing the "Command doesn't found!" message:
-//              - Check if the command in the argument is correct.
-//                      The only acceptable comands are "Set", "Start","Pause" and "Refresh"  ( They are not case sensitive. )
-
-//          If you are seeing other error messages, like "Caught expection..." and other code stuff:
-//                      Then a Component is probalby destroyed or is missing since the last component initialization.
-//              - Recompile the script, then run it with the "Refresh" argument.
-//                      This will gives you information about the Components.                       
- 
-//          If you have any questions or need help, you can write a reply to the Discussions in the Script's workshop page!
-//                  Link: https://steamcommunity.com/sharedfiles/filedetails/discussions/1695500366
-///////////////////////
-
-//  Now you are ready to use the script.
-//  If you want to experiment with the script or you want to use it in an unique way then you may check 4.) Advanced Configuration
-               
-///////////////////////
-// 4.) Advanced Configuration
-///////////   
-
-//      If you want to use unique Piston Limits for some reason:
-//                  - Change the Use Unique Piston Limits to True.
-//                  - Change the Limit values.
-
-//      If you want to use pistons that are not 2 Blocks high:
-//                  - Change the Piston Body Length in Meters.
-//                      - 1 Block counts as 2.5 Meters.
-//                  - You should only use the same type of Piston for a Mining Platform. 
-
-//      If you want to change the speed of the Rotation, or the speed of the Piston extensions/retractions:
-//                  - Change the Speed values.
-//                      - These values were defined through testing. Change these in your own behalf.
-
-///////////////////////
-// 5.) Features
-///////////  
-
-//  Adaptive Extension and Speed:
-//              - Based on how many Horizontal Pistons and Drills are you using, 
-//                the script adapts and finds the best configuration for the different values that it uses, 
-//                like how much the Horizontal Pistons should extend or how fast the Rotor should turn.
-//              - Most of this happens, when you run the "Set" command. 
-//              - (You can overwrite this by setting unique values in the Configuration.)
-
-//  Auto Pause/Start
-//              - The script checks that how much the Drill is filled and Pauses the Mining, 
-//                 when the High Cargo Threshold is reached.
-//              - The Mining restarts, when the Low Cargo Threshold is passed.
-//              - If there is any Cargo Blocks added to the script, then it will 
-//                 uses these blocks as reference, instead of the Drill.
-
-//  Show Advanced Data
-//              - There will be more information shown about the running.
-//              - It's not recommended for constant use in servers.
-
-//  LCD Color Coding
-//              - The font color of the Information in the LCDs will changes based on the current state of the script.
-
-//  Broadcasting Progression
-//              - You can broadcast progression informations trough an antenna to another grid's LCD.
-//              - More detailed information about how to do it is found under the 2.) Basic Configuration section.
-
-//  Share Inertia Tensor
-//              - Enables the Share Inertia Tensor In-game function of Pistons and Rotors to achive more stable behavior.
-
-// Dynamic Rotor Inertia Tensor
-//              - The Rotor sometimes acts strangely if the Share Inertia Tensor is enabled.
-//              - This feature will periodically enables and disables it for the Rotors, to prevent some of the issues.
-
-//  End of Mining
-//              - When the Mining is finished then the Pistons are gonna be retracted and the Drills are gonna stop.
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//SOME OTHER NOTES:
-
-//  Starting Position:
-//      A state, where the Rotor is either on it's Min or Max limit, and all the Pistons are retracted to their Min limit.
-
-//  Mining Sequence:
-//      The script rotates the rotor until it reaches it's max angle, then extends the Horizontal Pistons by a predetermined distance.
-//      This rotation and extension repeats, until the Horizontal Pistons were reached thier maximum limit.
-//      Then the rotor rotates once again at the maximum limit of the Horizontal Pistons, then the Vertical Pistons will be extended.
-//      Rotation again, then the Horizontal Pistons are gonna retract. 
-//      This repeats until the Horizontal pistons are at thier minimum limit.
-//      Rotation at the minimum, then another Vertical Extension.
-
-//      After that it's repeated from the start of the mining sequence.
-//      This will continue until every bit of ore that could be reached by the pistons and the rotor are mined out.
-
-//      If there are no Vertical or Horizontal Pistons, the script will skips the corresponding actions and functions.
-//      You may use any number of Vertical and Horizontal Pistons.
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//DO NOT MODIFY ANYTHING BELOW THIS
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Configuration variables
-string main_tag="/Mine 01/";
-
-bool use_auto_pause=true;
-float cargo_high_limit=0.9F;
-float cargo_low_limit=0.5F;
-bool share_inertia_tensor=true;
-bool use_dynamic_rotor_tensor=true;
-bool use_lcd_color_coding=true;
-bool show_advanced_data=false;
-long receiver_address=0;
-
-float max_rot_angle = 358F;
-float min_rot_angle = 0F;
-float excess_meters = 5.0F;   
-float vp_step_length=2.5F;
-bool use_unique_hp_step_length=false;
-float hp_step_length=3.33F;
-bool always_retract_hpistons=false;
-
-bool use_unique_piston_limits=false;
-float max_vp_limit=10F;
-float min_vp_limit=0F;
-float max_vp_limit_inv=10F;
-float min_vp_limit_inv=0F;
-float max_hp_limit=10F;     
-float min_hp_limit=0F;
-float vp_vel=0.3F;                            
-float hp_vel=0.3F;                            
-float rotor_vel_at_10m=0.5F;           
-float piston_length=5F;
-
-//Other variables
-
-float rot_speed=0;
-float piston_speed=0;
-double rotorAng;
-string[] data;
-string message="";
-string status="default";
-
-//Block Tags
-string vp_tag="/Ver/";
-string hp_tag="/Hor/";
-
-//Inverse Tag
-string inv_tag="/Inv/";
-
-//Timer Advanced Tag
-string adv_tag="/Adv/";
-
-int number = 0;
-
-string mode = "";
-int progress=0;
-int i=0,k=0,l=0,m=0;
-int eta_h=0;
-int eta_m=0;
-int tensor_counter=0;
-
-bool run_indicator=true;
-
-float vp_range=0;
-float hp_range=0;
-
-bool use_timer=false;
-bool use_timer_adv=false;
-bool use_screen=false;
-bool use_antenna=false;
-
-float debug_zone_bottom=0;
-float debug_zone_top=0;
-
-bool use_cargo_to_check=false;
-float cargo_curr_volume=0;
-
-bool set_auto_pause=false;
-
-VRage.MyFixedPoint maxvolume=0;
-VRage.MyFixedPoint curvolume=0;
-
-Color lcd_color=Color.White;
-////////////////////////////////////////
-//Variables stored in the Storage string
-
-int step=0;
-float max_step=1;
-
-int vp_count=0;
-int vp_stage_count=0;
-
-int hp_count=0;
-int hp_stage_count=0;
-
-int v_stage=0;
-int h_stage=0;
-
-bool set_mp_happened=false;
-bool hp_extend=true;
-bool ready_to_start=false;
-bool run=false;
-
-float vpiston_goal=0;
-float hpiston_goal=0;
-float vpiston_goal_inv=0;
-
-bool passed_debug_zone=false;
-
-bool use_high_cargo_limit=true;
-bool target_min_rot_limit=true;
-////////////////////////////////////////
-//Block defining stuff
- 
-List<IMyTerminalBlock> blocks;
-List<IMyPistonBase> v_pistons;
-List<IMyPistonBase> h_pistons;
-List<IMyPistonBase> v_pistons_inv;
-List<IMyShipDrill> drills;
-List<IMyTextSurface> screens;
-List<IMyTerminalBlock> cargos;
-
-
-IMyMotorAdvancedStator rotor;
-IMyPistonBase piston;
-IMyShipDrill drill;
-IMyTextSurface screen;
-IMyTextSurfaceProvider lcd_block;
-IMyRadioAntenna antenna;
-IMyTimerBlock timer;
-IMyTimerBlock timer_adv;
-
-IMyTextSurface me_lcd;
-
-public Program()
+//Loadable Variables ---
+//Costumizable ---
+//Highlighted Stuff ---
+public string MainTag="/Mine 01/";
+public float MaxRotorAngle=360;
+public float MinRotorAngle=0;
+
+
+//End of Highlighted Stuff --
+
+//Quick Updateable ---
+bool UseAutoPause=true;
+float HighCargoLimit=0.9f;
+float LowCargoLimit=0.5f;
+long TransmissionReceiverAddress=0;
+
+bool ShowAdvancedData=true;
+bool LcdColorCoding=true;
+bool DynamicRotorTensor=true;
+bool UseCargoContainersOnly=true;
+bool AlwaysUpdateDetailedInfo=false;
+
+float HorizontalExtensionSpeed=0.5f;
+float VerticalExtensionSpeed=0.5f;
+float RotorSpeedAt10m=0.5f;
+
+float DigModeSpeed=3f;
+
+//Hard Updateable ---
+bool SmartDetection=true;
+bool AlwaysRetractHorizontalPistons=false;
+bool ShareInertiaTensor=true;
+
+bool AdaptiveHorizontalExtension=true;
+float HpStepLength=3.33f;
+float VpStepLength=2.5f;
+
+float ManualDrillArmLength=0f;
+
+float MinHorizontalLimit=0;
+float MaxHorizontalLimit=0;
+
+float MinVerticalLimit=0;
+float MaxVerticalLimit=0;
+
+public string VerTag="/Ver/";
+public string HorTag="/Hor/";
+public string InvTag="/Inv/";
+public string StartTimerTag="/Start/";
+public string PauseTimerTag="/Pause/";
+public string FinishedTimerTag="/Finished/";
+//Non Costumizable ---
+//Save&Load these
+bool ComponentsReady=false;
+bool ImRunning=false;
+bool PlatformIsMoving=false;
+StepData Step = new StepData();  //Step.Value, Step.ExtendH
+RotorData MainRotor = new RotorData(); //RotateToMax, PassedDebugZone
+CargoModule Cargo = new CargoModule(); //HighTarget
+bool DigModeEnabled=false;
+//End of Loadable Stuff ---
+
+float Version=3.8f;
+bool NewSet=false;
+bool SendMessage=false;
+bool AntennaFound=false;
+bool UseCargoModule=false;
+bool StepCheckResult=false;
+bool FirstLoad=true;
+
+//ToReduceAllocation ---
+int DebugNumber=0;
+string Result="";
+List<IMyTerminalBlock> blocks  = new List<IMyTerminalBlock>();
+IMyTerminalBlock block;
+MyIni _ini = new MyIni();
+MyIniParseResult IniResult;
+
+TimeSpan TotalTime = new TimeSpan();
+DateTime StartTime = new DateTime();
+EventWatcher TimerEvent = new EventWatcher();
+ArgumentDecoder ArgumentData = new ArgumentDecoder();
+
+ScreenMessage Message = new ScreenMessage();
+DrillingArm DrillArm = new DrillingArm();
+PistonArm VerticalArm = new PistonArm();
+PistonArm HorizontalArm = new PistonArm();
+List<IMyTextSurface> Screens = new List<IMyTextSurface>();
+
+public struct StateData
 {
-    load_data();
-
-    if(!get_configuration())set_configuration();
-
-    if(run)
+    public string State;
+    public Color Color;
+    public StateData(string s,Color c)
     {
-        Runtime.UpdateFrequency = UpdateFrequency.Update100;
-        if(use_dynamic_rotor_tensor)
-        {
-            tensor_counter=38;
-        }
-    }
-
-
-    if(refresh_components())
-    {
-        save_data();
-        count_eta();
-    }
-
-    else
-    {
-            me_lcd = Me.GetSurface(0);
-            if(me_lcd.ContentType!=ContentType.TEXT_AND_IMAGE)
-            {
-                me_lcd.ContentType=ContentType.TEXT_AND_IMAGE;
-            }
-            me_lcd.FontSize=1.2F;
+        State=s;
+        Color=c;
     }
 }
 
-public void Save()
+public enum StateType
 {
-    set_configuration();
-    save_data();
+    SET,
+    START,
+    PAUSE,
+    REFRESH,
+    STANDBY,
+    EMERGENCY,
+    AUTOPAUSE,
+    ALIGNING,
+    SETMOVINGPARTS,
+    FINISHED,
+    ALIGNINGSTARTINGPOSITION,
+    DIGGING
 }
 
-public void Main(string argument, UpdateType updateSource) 
-{ 
-    status="";
-    if((updateSource & UpdateType.Update100)!=0)
+public class CargoModule
+{
+    public bool IsSet;
+    public bool AutoPauseEnabled;
+    public bool ShowOnScreen;
+    public float HighLimit;
+    public float LowLimit;
+    public float Fill;
+    public bool HighTarget;
+    public int Count;
+
+    List<IMyTerminalBlock> Inventorys;
+    MyFixedPoint CurrentVolume;
+    MyFixedPoint MaxVolume;
+    IMyTerminalBlock CurrentBlock;
+    string Message;
+    bool CreateNewMaxVolume;
+    int i;
+
+    public CargoModule()
     {
-        if(ready_to_start)
+        IsSet=false;
+        AutoPauseEnabled=false;
+        ShowOnScreen=false;
+        HighLimit=1;
+        LowLimit=0;
+        Fill=0;
+        HighTarget=true;
+        Count=0;
+        Inventorys = new List<IMyTerminalBlock>();
+        CurrentVolume=0;
+        MaxVolume=0;
+        Message="";
+        CreateNewMaxVolume=false;
+        i=0;
+    }
+    public void New(List<IMyTerminalBlock> _blocks, bool cargoOnly,float HighL, float LowL)
+    {
+        HighLimit=HighL*100f;
+        LowLimit=LowL*100f;
+        Fill=0;
+        AutoPauseEnabled=false;
+        Inventorys.Clear();
+        CreateNewMaxVolume=false;
+        MaxVolume=0;
+        if(cargoOnly)
         {
-            if(use_dynamic_rotor_tensor)
+            for(i=0;i<_blocks.Count;i++)
             {
-                if(tensor_counter>=40)
+                CurrentBlock=_blocks[i];
+                if(CurrentBlock is IMyCargoContainer)
                 {
-                    tensor_counter=0;
-                    if(!rotor.GetValueBool("ShareInertiaTensor"))
-                    {
-                        rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
-                    }
-                }
-                else if(tensor_counter==1)
-                {
-                     if(rotor.GetValueBool("ShareInertiaTensor"))
-                    {
-                        rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
-                    }
-                }
-                tensor_counter++;
-            }
-            if(run)
-            {
-                if(use_auto_pause && check_if_full(use_high_cargo_limit))
-                {
-                    status="Auto Paused...";
-                    if(!set_auto_pause)
-                    {
-                        pause_moving_parts();
-                        set_auto_pause=true;
-                        lcd_color=Color.Orange;
-                        if(use_timer_adv)timer_adv.GetActionWithName("Start").Apply(timer_adv);
-                    }
-                }
-                else
-                {
-                    if(set_auto_pause)
-                    {
-                        set_auto_pause=false;
-                    }
-                    if(lcd_color!=Color.DodgerBlue)lcd_color=Color.DodgerBlue;
-                    start_system();
+                    Inventorys.Add(CurrentBlock);
+                    MaxVolume+=CurrentBlock.GetInventory(0).MaxVolume;
                 }
             }
         }
         else
         {
-            Echo("\nSystem: Not Ready!\n");
-            lcd_color=Color.Yellow;
-            pause_moving_parts();
-            Runtime.UpdateFrequency = UpdateFrequency.None;
-            run=false;
-        }
-        set_message();
-        list_data();
-        me_lcd.FontColor=lcd_color;
-        me_lcd.WriteText(message,false);
-        if(use_screen)
-        {
-            write_screen();
-        }
-        if(use_antenna)send_message();
-    }
-    else
-    {
-        if(argument!="")
-        {
-            if(argument.Contains(';'))
+            for(i=0;i<_blocks.Count;i++)
             {
-                mode=argument.Split(';')[0];
-                mode=mode.ToLower();   
-                if(!Int32.TryParse(argument.Split(';')[1],out number))
+                CurrentBlock=_blocks[i];
+                if(CurrentBlock.HasInventory && !(CurrentBlock is IMyShipDrill))
                 {
-                    Echo("Wrong Number after the separator!");
-                    return;
+                    Inventorys.Add(CurrentBlock);
+                    MaxVolume+=CurrentBlock.GetInventory(0).MaxVolume;
+                }
+            }            
+        }
+        Count=Inventorys.Count;
+        if(Count==0)
+        {
+            for(int i=0;i<_blocks.Count;i++)
+            {
+                CurrentBlock=_blocks[i];
+                if(CurrentBlock is IMyShipDrill)
+                {
+                    Inventorys.Add(CurrentBlock);
+                }
+            }
+            ShowOnScreen=false;
+        }
+        else ShowOnScreen=true;
+        if(Count>0)IsSet=true;
+        else IsSet=false;
+
+        Update();
+    }
+    public void Update() //Updates the data about volume in the class
+    {
+        CurrentVolume=0;
+        if(ShowOnScreen)
+        {
+            for(i=0;i<Inventorys.Count;i++)
+            {
+                CurrentBlock=Inventorys[i];
+                if(CurrentBlock!=null && CurrentBlock.CubeGrid.GetCubeBlock(CurrentBlock.Position)!=null)
+                {
+                    CurrentVolume+=CurrentBlock.GetInventory(0).CurrentVolume;
                 }
                 else
                 {
-                    if(number%2==0)
+                    CreateNewMaxVolume=true;
+                    Inventorys.RemoveAt(i);
+                    i--;
+                }
+            }
+            if(CreateNewMaxVolume)
+            {
+                MaxVolume=0;
+                for(i=0;i<Inventorys.Count;i++)
+                {
+                    MaxVolume+=Inventorys[i].GetInventory(0).MaxVolume;
+                }
+            }
+            Fill=(float)CurrentVolume/(float)MaxVolume;
+            Fill*=100;
+        }
+        else
+        {
+            if(Inventorys.Count>0)
+            {
+                CurrentBlock=Inventorys[0];
+                if(CurrentBlock!=null && CurrentBlock.CubeGrid.GetCubeBlock(CurrentBlock.Position)!=null)
+                {
+                    MaxVolume=CurrentBlock.GetInventory(0).MaxVolume;
+                    CurrentVolume=CurrentBlock.GetInventory(0).CurrentVolume;
+                    Fill=(float)CurrentVolume/(float)MaxVolume;
+                    Fill*=100;
+                }
+            }
+        }
+    }
+    public void CheckIfFilled() //Set the data of the class, based on the fillage of the cargo block list
+    {
+        if(HighTarget)
+        {
+            if(Fill>=HighLimit)
+            {
+                AutoPauseEnabled=true;
+                HighTarget=false;
+            }
+            else AutoPauseEnabled=false;
+        }
+        else
+        {
+            if(Fill<=LowLimit)
+            {
+                AutoPauseEnabled=false;
+                HighTarget=true;
+            }
+            else AutoPauseEnabled=true;
+        }
+    }
+    public string ConstructMsg() //Creates a string that contains formatted data for the Screens and Detailed Info
+    {
+        Message="";
+        Fill=(float)Math.Round(Fill,MidpointRounding.AwayFromZero);
+        Message+="Cargo:      [";
+        for(i=0;i<Math.Round(Fill/2.5);i++)
+        {
+            Message+="|";
+        }   
+        while(i<40)
+        {
+            Message+="'";
+            i++;
+        }
+        return Message+="] "+Fill+"%\n";      
+    }
+};
+
+public class RotorData
+{
+    public bool IsSet;
+    public IMyMotorStator Rotor;
+    public Vector3D Position;
+    public Vector3D DirectionVector;
+    public float CurrentAngle;
+    public float CurrentAngleRad;
+    public float TargetSpeed;
+    public byte TensorTimer;
+    public bool RotateToMax;
+    public bool IsInPosition;
+    public bool PassedDebugZone;
+    public float DebugZoneHighDeg;
+    public float DebugZoneLowDeg;
+    public ITerminalAction InertiaTensor;
+    public bool ConstantTensor;
+    public float Speed;
+    public bool UseDigSpeed;
+    public float DigSpeed;
+
+    float DebugZoneLow;
+    float DebugZoneHigh;
+    bool Integrity;
+    float MaxAngle;
+    float MinAngle;
+    float InnerDistance;
+    bool First;
+    
+    public RotorData()
+    {
+        IsSet=false;
+        Position=Vector3D.Zero;
+        DirectionVector=Vector3D.Up;
+        CurrentAngle=0;
+        CurrentAngleRad=0;
+        TargetSpeed=0.5f;
+        TensorTimer=0;
+        RotateToMax=true;
+        IsInPosition=false;
+        PassedDebugZone=false;
+        DebugZoneHighDeg=0;
+        DebugZoneLowDeg=0;
+        ConstantTensor=false;
+
+        DebugZoneLow=0;
+        DebugZoneHigh=0;
+        Integrity=false;
+        MaxAngle=360f;
+        MinAngle=0;
+        Speed=0.5f;
+        InnerDistance=360f;
+        First=false;
+        UseDigSpeed=false;
+        DigSpeed=0;
+    }
+    public void New(IMyMotorStator _rotor)
+    {
+        Rotor=_rotor;
+        Position=Rotor.GetPosition();
+        IMyAttachableTopBlock top = Rotor.Top;
+        DirectionVector = Position-top.GetPosition();
+        TensorTimer=0;
+        IsInPosition=false;
+        Integrity=true;
+        InertiaTensor=Rotor.GetActionWithName("ShareInertiaTensor");
+        ConstantTensor=false;
+        IsSet=true;
+        First=false;
+        UseDigSpeed=false;
+    }
+    public void UpdateTensor() //Enables the Share Inertia Tensor at the 40. run of the method for 1 run
+    {
+        if(!ConstantTensor)
+        {
+            if(TensorTimer>=25)
+            {
+                EnableTensor();
+                TensorTimer=0;
+            }
+            else
+            {
+                if(TensorTimer==3)
+                {
+                    EnableTensor(false);
+                }
+            }
+            TensorTimer++;
+        }
+    }
+    public void Init(float max, float min) //Sets the Rotor's Limits, based on degree, and saves it in Radian with 1 degree correction, for later use
+    {
+        max=(float)((max*Math.PI)/180f);
+        min=(float)((min*Math.PI)/180f);
+        if(max<min)
+        {
+            float switcher=max;
+            max=min;
+            min=switcher;
+        }
+
+        if(max-min>6.28318531f)min=max-6.28318531f;
+
+        MaxAngle=max-0.008f;
+        MinAngle=min+0.008f;
+
+        Rotor.UpperLimitRad=MaxAngle;
+        Rotor.LowerLimitRad=MinAngle;
+
+        Rotor.BrakingTorque=1000000000f;
+
+        InnerDistance=(MaxAngle-MinAngle)*0.25f;
+        DebugZoneHigh=MaxAngle-InnerDistance;
+        DebugZoneLow=MinAngle+InnerDistance;
+
+        DebugZoneHighDeg=(float)Math.Round(DebugZoneHigh*180f/Math.PI,1,MidpointRounding.AwayFromZero);
+        DebugZoneLowDeg=(float)Math.Round(DebugZoneLow*180f/Math.PI,1,MidpointRounding.AwayFromZero);
+
+    }
+    public void QuickInit(float _speed, float _digSpeed, float _distance=0, bool _setSpeedToo=false)
+    {
+        Speed=_speed;
+        DigSpeed=_digSpeed;
+        if(_setSpeedToo)SetSpeed(_distance);
+    }
+    public void SetToTarget(float distance, bool _first=true) //Set the values of the Rotor to the given step number.
+    {
+        First=_first;
+        CurrentAngleRad=Rotor.Angle;
+        if(CurrentAngleRad>6.28318531f)CurrentAngleRad=CurrentAngleRad%6.28318531f;
+        else if(CurrentAngleRad<-6.28318531f)CurrentAngleRad=CurrentAngleRad%-6.28318531f;
+
+        if(First)
+        {
+            if(CurrentAngleRad==MaxAngle)
+            {
+                RotateToMax=true;
+                TargetSpeed=10*Speed/distance;
+            }
+            else if(CurrentAngleRad==MinAngle)
+            {
+                RotateToMax=false;
+                TargetSpeed=-10*Speed/distance;
+            }
+            if(CurrentAngleRad<MaxAngle && CurrentAngleRad>MinAngle)
+            {
+                //Inside of Boundary
+                if(MaxAngle-CurrentAngleRad>=CurrentAngleRad-MinAngle)
+                {
+                    RotateToMax=false;
+                    TargetSpeed=-10*Speed/distance;
+                }
+                else 
+                {
+                    RotateToMax=true;
+                    TargetSpeed=10*Speed/distance;
+                }
+            }
+            else
+            {
+                //outside of Boundary
+                if(CurrentAngleRad<MinAngle)
+                {
+                    InnerDistance=Math.Abs(CurrentAngleRad-MinAngle);
+                    if(InnerDistance<(6.28318531f-InnerDistance))
                     {
-                        if(number>=0)
-                        {
-                            if(number>max_step)
-                            {
-                                Echo("Wrong Number! It's higher than the Max Step!");
-                                return;
-                            }
-                        }
-                        else
-                        {
-                            Echo("Wrong Number! You can't use negative numbers!"); 
-                            return;
-                        }
+                        RotateToMax=false;
+                        SetLimits(MinAngle);
+                        TargetSpeed=10*Speed/distance;
                     }
                     else
                     {
-                        Echo("Wrong Number! You can't use an odd number for an Advanced Set!");
-                        return;
+                        RotateToMax=true;
+                        SetLimits(MaxAngle);
+                        TargetSpeed=-10*Speed/distance;
+                    }
+                }
+                else
+                {
+                    InnerDistance=Math.Abs(CurrentAngleRad-MaxAngle);
+                    if(InnerDistance<(6.28318531f-InnerDistance))
+                    {
+                        RotateToMax=true;
+                        SetLimits(MaxAngle);
+                        TargetSpeed=-10*Speed/distance;
+                    }
+                    else
+                    {
+                        RotateToMax=false;
+                        SetLimits(MinAngle);
+                        TargetSpeed=10*Speed/distance;
+                    }
+                }
+            }
+            PassedDebugZone=true;
+        }
+        else 
+        {
+            PassedDebugZone=false;
+                    
+            if(RotateToMax && IsInPosition)RotateToMax=false;
+            else if(!RotateToMax && IsInPosition)RotateToMax=true;
+
+            if(UseDigSpeed)
+            {
+                if(RotateToMax)TargetSpeed=10*DigSpeed/distance;
+                else TargetSpeed=-10*DigSpeed/distance;
+            }
+            else
+            {
+                if(RotateToMax)TargetSpeed=10*Speed/distance;
+                else TargetSpeed=-10*Speed/distance;
+            }
+        }
+
+        TargetSpeed=(float)Math.Round(TargetSpeed,3,MidpointRounding.AwayFromZero);
+        Rotor.TargetVelocityRPM=TargetSpeed;
+
+        CurrentAngle=(float)Math.Round(CurrentAngleRad*180f/Math.PI,1,MidpointRounding.AwayFromZero);
+        
+        IsInPosition=false;
+    }
+    public void ReverseTurn()
+    {
+        RotateToMax=!RotateToMax;
+        Rotor.TargetVelocityRPM=-TargetSpeed;
+    }
+    public void SetSpeed(float distance)
+    {
+        if(UseDigSpeed)
+        {
+            if(RotateToMax)TargetSpeed=10*DigSpeed/distance;
+            else TargetSpeed=-10*DigSpeed/distance;
+        }
+        else
+        {
+            if(RotateToMax)TargetSpeed=10*Speed/distance;
+            else TargetSpeed=-10*Speed/distance;
+        }
+
+        TargetSpeed=(float)Math.Round(TargetSpeed,3,MidpointRounding.AwayFromZero);
+        Rotor.TargetVelocityRPM=TargetSpeed;
+    }
+    public void Update() //Refreshes the Current Angle of the Rotor in degrees
+    {
+        CurrentAngle=(float)Math.Round(Rotor.Angle*180f/Math.PI,1,MidpointRounding.AwayFromZero);
+    }
+    public void CheckTarget()
+    {
+        CurrentAngleRad=Rotor.Angle;
+        if(PassedDebugZone)
+        {
+            if(First)
+            {
+                if(Math.Abs(CurrentAngleRad-MaxAngle)<0.004f)
+                {
+                    IsInPosition=true;
+                    RotateToMax=true;
+                }
+                else if(Math.Abs(CurrentAngleRad-MinAngle)<0.004f)
+                {
+                    IsInPosition=true;
+                    RotateToMax=false;
+                }
+            }
+            else if(RotateToMax)
+            {
+                if(Math.Abs(CurrentAngleRad-MaxAngle)<0.004f)IsInPosition=true;
+            }
+            else
+            {
+                if(Math.Abs(CurrentAngleRad-MinAngle)<0.004f)IsInPosition=true;
+            }
+        }
+        else
+        {
+            if(CurrentAngleRad>=DebugZoneLow && CurrentAngleRad<=DebugZoneHigh)PassedDebugZone=true;
+            else
+            {
+                if(RotateToMax)
+                {
+                    if(CurrentAngleRad>=DebugZoneHigh)ReverseTurn();
+                }
+                else
+                {
+                    if(CurrentAngleRad<=DebugZoneLow)ReverseTurn();
+                }
+                
+            }
+        }
+    }
+    public bool IntegrityTest()
+    {
+        if(Rotor!=null && Rotor.CubeGrid.GetCubeBlock(Rotor.Position)!=null)return true;
+        else
+        {
+            Integrity=false;
+            return false;
+        }
+    }
+    public string EmergencyStop()
+    {
+        if(!Integrity)
+        {
+            return "[System]:Rotor missing!\n";
+        }
+        else
+        {
+            Rotor.Enabled=false;
+            return "";
+        }
+    }
+    public void SetLimits(float _limit)
+    {
+        Rotor.UpperLimitRad=_limit;
+        Rotor.LowerLimitRad=_limit;
+    }
+    public void SetLimits(bool _default=true)
+    {
+        Rotor.UpperLimitRad=MaxAngle;
+        Rotor.LowerLimitRad=MinAngle;
+    }
+    public void EnableTensor(bool _on=true)
+    {
+        if(_on!=Rotor.GetValueBool("ShareInertiaTensor"))
+        {
+            InertiaTensor.Apply(Rotor);
+        }
+    }
+    public void EnableTensorStatic(bool _on=true)
+    {
+        ConstantTensor=_on;
+        if(_on!=Rotor.GetValueBool("ShareInertiaTensor"))
+        {
+            InertiaTensor.Apply(Rotor);
+        }
+    }
+    public float InnerRadius()
+    {
+        return Math.Abs(MaxAngle-MinAngle);
+    }
+};
+
+public class DrillingArm
+{
+    public List<IMyShipDrill> Drills;
+    public float Length;
+    
+    public Vector3D FurthestVector;
+    public Vector3D ClosestVector;
+
+    IMyShipDrill FurthestDrill;
+    IMyShipDrill ClosestDrill;
+    IMyShipDrill CurrentBlock;
+    bool Integrity;
+
+    public DrillingArm()
+    {
+        Drills = new List<IMyShipDrill>();
+        FurthestVector = Vector3D.Zero;
+        ClosestVector = Vector3D.Zero;;
+        Integrity=true;
+    }
+    public void New()
+    {
+        Drills.Clear();
+        FurthestVector = Vector3D.Zero;
+        ClosestVector = Vector3D.Zero;;
+        Integrity=true;
+    }
+    public void Init(float _length,Vector3D RotorPos) //Sets the Furthest&Closest Drills and their DirectionVectors from the Rotor's Position
+                                                      //Also, if the given length is not 0, then it calculates the lenght of the DrillArm
+    {
+        Vector3D CheckVector;
+        double MaxLength=0;
+        double MinLength=int.MaxValue;
+        double CurrentLenth=0;
+        int MaxIndex=0;
+        int MinIndex=0;
+        for(int i=0;i<Drills.Count;i++)
+        {
+            CheckVector=Drills[i].GetPosition();
+            CheckVector=CheckVector-RotorPos;
+            CurrentLenth=CheckVector.Length();
+            if(CurrentLenth>MaxLength)
+            {
+                MaxLength=CurrentLenth;
+                MaxIndex=i;
+            }
+            else if(CurrentLenth<MinLength)
+            {
+                MinLength=CurrentLenth;
+                MinIndex=i;
+            }
+        }
+        FurthestDrill=Drills[MaxIndex];
+        ClosestDrill=Drills[MinIndex];
+        FurthestVector=RotorPos-FurthestDrill.GetPosition();
+        ClosestVector=RotorPos-ClosestDrill.GetPosition();
+        if(_length==0)
+        {
+            CheckVector=FurthestVector-ClosestVector;
+            Length=(float)Math.Round(2.5f+CheckVector.Length(),1,MidpointRounding.AwayFromZero);
+        }
+        else Length=_length;
+    }
+    public void Enable(bool _on=true)
+    {
+        for(int i=0;i<Drills.Count;i++)
+        {
+            Drills[i].Enabled=_on;
+        }
+    }
+    public bool IntegrityTest()
+    {
+        for(int i=0;i<Drills.Count;i++)
+        {
+            CurrentBlock=Drills[i];
+            if(CurrentBlock==null || CurrentBlock.CubeGrid.GetCubeBlock(CurrentBlock.Position)==null)
+            {
+                Integrity=false;
+                return false;
+            }
+        }
+        return true;
+    }
+    public string EmergencyStop()
+    {
+        if(!Integrity)
+        {
+            for(int i=0;i<Drills.Count;i++)
+            {
+                CurrentBlock=Drills[i];
+                if(CurrentBlock!=null && CurrentBlock.CubeGrid.GetCubeBlock(CurrentBlock.Position)!=null)CurrentBlock.Enabled=false;
+            }
+            return "[System]: Drill is Missing!\n";
+        }
+        else
+        {
+            for(int i=0;i<Drills.Count;i++)
+            {
+                Drills[i].Enabled=false;
+            }
+            return "";
+        }
+    }
+};
+
+public class PistonBlock
+{
+    public IMyPistonBase Block;
+    public bool Inverted;
+    public float TargetDistance;
+
+    public PistonBlock(IMyPistonBase pis, bool inv=false)
+    {
+        Block=pis;
+        Inverted=inv;
+        if(inv)TargetDistance=Block.HighestPosition;
+        else TargetDistance=Block.LowestPosition;
+    }
+}
+
+public class StepData
+{
+    public bool IsSet;
+    public int Value;
+    public int V;
+    public int H;
+    public int MaxV;
+    public int MaxH;
+    public int Max;
+    public bool ExtendH;
+    public int Progression;
+    public bool Odd;
+    public bool Finished;
+    public bool First;
+    public bool Horizontal;
+    public bool UseExtendH;
+    public float MaxTime;
+    public float CurrentTime;
+    public int Hours;
+    public int Minutes;
+
+    float HStepExtensionTime;
+    float VStepExtensionTime;
+    public List<float> RotationTimes;//
+    float CurrentRotationTime;
+    public float AFullRotationTime;//
+    int i;
+
+    public StepData()
+    {
+        IsSet=false;
+        Value=0;
+        V=0;
+        H=0;
+        MaxV=0;
+        MaxH=0;
+        Max=0;
+        ExtendH=true;
+        Progression=0;
+        Odd=false;
+        Finished=false;
+        First=false;
+        Horizontal=true;
+        UseExtendH=false;
+        i=0;
+
+        MaxTime=0;
+        CurrentTime=0;
+
+        HStepExtensionTime=0;
+        VStepExtensionTime=0;
+        RotationTimes = new List<float>();
+        CurrentRotationTime=0;
+        AFullRotationTime=0;
+
+        Hours=0;
+        Minutes=0;
+    }
+    public void New(int val=0,double mH=0, double mV=0, bool _alwaysRetract=false, bool _first=true)
+    {
+        if(mV>=0)MaxV=(int)mV;
+        else mH=0;
+        if(mH>=0)MaxH=(int)mH;
+        else MaxH=0;
+        Max=2+MaxV*2+(MaxV+1)*MaxH*2;
+        if(val>Max)Value=Max;
+        else if(val<0)Value=0;
+        else Value=val;
+        UseExtendH=!_alwaysRetract;
+        ExtendH=true;
+        IsSet=true;
+        First=_first;
+        Analysis();
+        Progression=(int)Math.Round((Value*100f/Max));
+        i=0;
+
+        MaxTime=0;
+        CurrentTime=0;
+        HStepExtensionTime=0;
+        VStepExtensionTime=0;
+        CurrentRotationTime=0;
+        AFullRotationTime=0;
+
+        Hours=0;
+        Minutes=0;
+    }
+    public void DigModeChange(double mH, double mV)
+    {
+        if(mV>=0)MaxV=(int)mV;
+        else mH=0;
+        if(mH>=0)MaxH=(int)mH;
+        else MaxH=0;
+        Max=2+MaxV*2+(MaxV+1)*MaxH*2;
+        Value=(int)Math.Round((Progression/100f)*Max);
+        Analysis();
+        Progression=(int)Math.Round((Value*100f/Max));
+    }
+    public bool Update() //Inscreases the Step Value by one, and checks if the Max Value is reached.
+    {
+        Value++;
+        Progression=(int)Math.Round((Value*100f/Max));
+        Analysis();
+        First=false;
+        return Finished;
+
+    }
+    public void Analysis(int num=0, bool replace=false)//Sets the Horizontal and Vertical Step Values from a given Step number
+    {
+        if(replace)Value=num;
+        else num=Value;
+        if(num%2==1)
+        {
+            num--;
+        }
+        if(num<=0 || num>=Max)
+        {
+            V=0;
+            H=0;
+        }     
+        else
+        {
+            num=num/2;
+                        
+            V=(int)Math.Floor(num/(double)(MaxH+1));
+            if(num%(MaxH+1)==0)
+            {
+                H=0;
+            }
+            else 
+            {
+                H=(num%(MaxH+1));
+            }
+        }
+        if(H==0)Horizontal=false;
+        else Horizontal=true;
+
+        if(UseExtendH)
+        {
+            if(V%2==0)ExtendH=true;
+            else ExtendH=false;
+        }
+        else ExtendH=true;
+
+        if(Value%2==0)Odd=false;
+        else Odd=true;
+
+        if(Value>=Max)
+        {
+            Finished=true;
+            Value=Max;
+        }
+        else Finished=false;
+    }
+    public void NewETA(float vStepTime, float hStepTime, float hLength, float hStepLength, float rRadius, float rSpeed)
+    {
+        RotationTimes.Clear();
+
+        VStepExtensionTime=vStepTime;
+        HStepExtensionTime=hStepTime;
+        MaxTime=VStepExtensionTime*MaxV+HStepExtensionTime*MaxH*(MaxV+1);//333,28
+        if(!UseExtendH)MaxTime+=HStepExtensionTime*MaxH*MaxV;
+        
+        AFullRotationTime=0;
+        for(i=0;i<MaxH+1;i++)
+        {
+            CurrentRotationTime=(60*rRadius/6.28318531f)/(10*rSpeed/(hLength+hStepLength*i));
+            RotationTimes.Add(CurrentRotationTime);
+            AFullRotationTime+=CurrentRotationTime;
+        }
+        MaxTime+=AFullRotationTime*(MaxV+1);//2412,96
+
+        MaxTime+=Max;//72
+
+    }
+    public void UpdateETA()
+    {
+        if(Finished)CurrentTime=0;
+        else
+        {
+            CurrentTime=MaxTime;
+            
+            if(Odd || First)CurrentTime-=VStepExtensionTime*V+HStepExtensionTime*H*(V+1);
+            else if(Horizontal)CurrentTime-=VStepExtensionTime*V+HStepExtensionTime*H-1*(V+1);
+            else CurrentTime-=VStepExtensionTime*V-1+HStepExtensionTime*H-1*(V+1);
+
+            if(!UseExtendH)
+            {
+                CurrentTime-=HStepExtensionTime*MaxH*V;
+            }
+
+            if(ExtendH)
+            {
+
+                for(i=0;i<H;i++)
+                {
+                    CurrentTime-=RotationTimes[i];
+                }
+            }
+            else
+            {
+                for(i=H-1;i>=0;i--)
+                {
+                    CurrentTime-=RotationTimes[i];
+                }        
+            }
+            
+            CurrentTime-=AFullRotationTime*V;
+            CurrentTime-=Value;
+        }
+
+        Hours=(int)Math.Floor(CurrentTime/3600f);
+        Minutes=(int)Math.Ceiling((CurrentTime%3600f)/60f);
+    }
+}
+
+public class PistonArm
+{
+    public List<PistonBlock> Pistons;
+    public float Length;
+    public float StepLength;
+    public float ExtendableLength;
+    public float ArmTargetDistance;
+    public Vector3D DebugVector;
+    public bool IsInPosition;
+    public bool Enabled;
+    public float ActualSpeed;
+    public float ExtensionSpeed;
+
+    public float MinExtendableLength;
+    public float MaxExtendableLength;
+
+    public bool UseDigSpeed;
+    public float DigSpeed;
+    public float DigStepLength;
+
+    bool Integrity;
+    int MovingPistons;
+
+    IMyPistonBase CurrentPiston;
+    float _RemainingDistance;
+    bool _FoundInverted;
+
+    public PistonArm()
+    {
+        Pistons=new List<PistonBlock>();
+        Length=0;
+        StepLength=2.5f;
+        ExtendableLength=0;
+        ArmTargetDistance=0;
+        DebugVector = Vector3D.Zero;
+        IsInPosition=false;
+        
+        Enabled=false;
+        MovingPistons=0;
+        ExtensionSpeed=0.5f;
+        ActualSpeed=ExtensionSpeed;
+
+        MaxExtendableLength=0;
+        MinExtendableLength=0;
+
+        UseDigSpeed=false;
+        DigSpeed=0;
+        DigStepLength=0;
+        
+        MovingPistons=0;
+        Integrity=true;
+
+        _RemainingDistance=0;
+        _FoundInverted=false;
+    }
+    public void New()
+    {
+        Pistons.Clear();
+        Length=0;
+        StepLength=2.5f;
+        ExtendableLength=0;
+        ArmTargetDistance=0;
+        DebugVector = Vector3D.Zero;
+        IsInPosition=false;
+        Enabled=false;
+        //ExtensionSpeed=0.5f;
+        ActualSpeed=ExtensionSpeed;
+
+        MaxExtendableLength=0;
+        MinExtendableLength=0;
+
+        UseDigSpeed=false;
+        //DigSpeed=0;
+
+        Integrity=true;
+        MovingPistons=0;
+    }
+    public float EffectiveTargetDistance() //Calculates the effective distance of the Arm. Used when setting the rotor's speed.
+    {
+        return Length+ArmTargetDistance;
+    }
+    public void SetStepLength(float referenceLength, bool adaptive=false)
+    {
+        if(adaptive)
+        {
+            StepLength=(float)Math.Round((ExtendableLength/Math.Ceiling(ExtendableLength/referenceLength)),2,MidpointRounding.AwayFromZero);
+        }
+        else StepLength=referenceLength;
+        DigStepLength=StepLength+5f;
+    }
+    public float StepExtensionTime()
+    {
+        if(UseDigSpeed)return DigStepLength/DigSpeed;
+        else return StepLength/ExtensionSpeed;
+    }
+    public void SetToTarget(int step, bool extend=true)
+    {
+        IsInPosition=false;
+        MovingPistons=0;
+
+        if(UseDigSpeed)
+        {
+            if(extend)ArmTargetDistance=step*DigStepLength;
+            else ArmTargetDistance=ExtendableLength-step*DigStepLength;
+        }
+        else
+        {
+            if(extend)ArmTargetDistance=step*StepLength;
+            else ArmTargetDistance=ExtendableLength-step*StepLength;
+        }
+
+        ArmTargetDistance+=MinExtendableLength;
+        if(ArmTargetDistance>MaxExtendableLength)ArmTargetDistance=MaxExtendableLength;
+
+        _RemainingDistance=ArmTargetDistance;
+        for(int i=0;i<Pistons.Count;i++)
+        {
+            CurrentPiston=Pistons[i].Block;
+            if(_RemainingDistance>0)
+            {
+                if(CurrentPiston.HighestPosition>_RemainingDistance)
+                {
+                    if(!Pistons[i].Inverted)
+                    {
+                        CurrentPiston.MinLimit=_RemainingDistance;
+                        CurrentPiston.MaxLimit=_RemainingDistance;
+                    }
+                    else
+                    {
+                        CurrentPiston.MinLimit=CurrentPiston.HighestPosition-_RemainingDistance;
+                        CurrentPiston.MaxLimit=CurrentPiston.HighestPosition-_RemainingDistance;
+                    }
+                    _RemainingDistance=0;
+                }
+                else
+                {
+                    if(!Pistons[i].Inverted)
+                    {
+                        CurrentPiston.MinLimit=CurrentPiston.HighestPosition;
+                        CurrentPiston.MaxLimit=CurrentPiston.HighestPosition;
+                    }
+                    else 
+                    {
+                        CurrentPiston.MinLimit=CurrentPiston.LowestPosition;
+                        CurrentPiston.MaxLimit=CurrentPiston.LowestPosition;
+                    }
+                    _RemainingDistance-=CurrentPiston.HighestPosition;
+                }
+            }
+            else
+            {
+                if(Pistons[i].Inverted)
+                {
+                    CurrentPiston.MinLimit=CurrentPiston.HighestPosition;
+                    CurrentPiston.MaxLimit=CurrentPiston.HighestPosition;
+                }
+                else
+                {
+                    CurrentPiston.MinLimit=CurrentPiston.LowestPosition;
+                    CurrentPiston.MaxLimit=CurrentPiston.LowestPosition;
+                }
+            }
+            Pistons[i].TargetDistance=CurrentPiston.MaxLimit;
+
+            if(CurrentPiston.CurrentPosition!=Pistons[i].TargetDistance)MovingPistons++;
+
+            if(CurrentPiston.CurrentPosition<CurrentPiston.MaxLimit)CurrentPiston.Extend();
+            else CurrentPiston.Retract();
+        }
+        SetSpeed();
+    }
+    public void SetSpeed()
+    {
+        if(MovingPistons==0)MovingPistons=1;
+
+        if(UseDigSpeed)ActualSpeed=(float)Math.Round(DigSpeed/MovingPistons,2,MidpointRounding.AwayFromZero);
+        else ActualSpeed=(float)Math.Round(ExtensionSpeed/MovingPistons,2,MidpointRounding.AwayFromZero);
+        for(int i=0;i<Pistons.Count;i++)
+        {
+            CurrentPiston=Pistons[i].Block;
+            if(CurrentPiston.MaxVelocity>ActualSpeed)
+            {
+                if(CurrentPiston.Velocity>0)CurrentPiston.Velocity=ActualSpeed;
+                else CurrentPiston.Velocity=-ActualSpeed;
+            }
+            else
+            {
+                if(CurrentPiston.Velocity>0)CurrentPiston.Velocity=CurrentPiston.MaxVelocity;
+                else CurrentPiston.Velocity=-1*CurrentPiston.MaxVelocity;
+            }
+        }
+    }
+    public void Init(Vector3D RotorToDrillVector, bool _smart, float _min, float _max)
+    {
+        IMyAttachableTopBlock top;
+        IMyPistonBase piston;
+        Vector3D BaseVector;
+        Vector3D CheckVector;
+        double VectorData;
+        if(Pistons.Count>0)
+        {
+            _FoundInverted=false;
+            int i=0;
+            if(_smart)
+            {
+                for(i=0;i<Pistons.Count;i++)//Search first Invereted Piston in list
+                {
+                    if(Pistons[i].Inverted)
+                    {
+                        _FoundInverted=true;
+                        break;
+                    }
+                }
+            }
+            if(_FoundInverted)
+            {
+                top=Pistons[i].Block.Top;
+                BaseVector = Pistons[i].Block.GetPosition();
+                BaseVector = BaseVector - top.GetPosition();
+                BaseVector.Normalize();
+            }
+            else
+            {
+                top=Pistons[0].Block.Top;
+                BaseVector = Pistons[0].Block.GetPosition();
+                BaseVector = BaseVector - top.GetPosition();
+                BaseVector.Normalize();
+                BaseVector=Vector3D.Negate(BaseVector);
+            }
+
+            if(_smart)
+            {
+                for(i=0;i<Pistons.Count;i++)//Initialize Piston directions based on found inverted piston + Set DefaultSpeed
+                {
+                    CurrentPiston=Pistons[i].Block;
+
+                    if(CurrentPiston.MaxVelocity>ExtensionSpeed)CurrentPiston.Velocity=CurrentPiston.MaxVelocity;
+                    else CurrentPiston.Velocity=ExtensionSpeed;
+
+                    if(!Pistons[i].Inverted)
+                    {
+                        top=CurrentPiston.Top;
+                        CheckVector = CurrentPiston.GetPosition();
+                        CheckVector = CheckVector - top.GetPosition();
+                        CheckVector.Normalize();
+                        VectorData=Vector3D.Dot(BaseVector,CheckVector);
+                        if(VectorData>0.9f)
+                        {
+                            Pistons[i].Inverted=true;
+                        }
+                        else if(VectorData<0.1f && VectorData>0.1f)
+                        {
+                            Pistons.RemoveAt(i);
+                            i--;
+                        }
                     }
                 }
             }
             else
             {
-                mode=argument;
-                mode=mode.ToLower();
-                number=0;
-            }
-        }   
-        else
-        {
-            Echo("No argument added!");
-            mode="";
-            return;
-        }
+                CurrentPiston=Pistons[i].Block;
 
-        switch(mode)
-        {
-            case "set":
+                if(CurrentPiston.MaxVelocity>ExtensionSpeed)CurrentPiston.Velocity=CurrentPiston.MaxVelocity;
+                else CurrentPiston.Velocity=ExtensionSpeed;
+            }
+            DebugVector=Vector3D.Cross(BaseVector,RotorToDrillVector);
+            DebugVector=Vector3D.Cross(DebugVector,BaseVector);
+            DebugVector = Vector3D.ProjectOnPlane(ref RotorToDrillVector, ref DebugVector);
+            Length = (float)DebugVector.Length();
+
+
+            MaxExtendableLength=0;
+            for(i=0;i<Pistons.Count;i++)//Set the cumulated ExtendableLength of the arm, and adjust Lenght if Pistons are not in position
             {
-                Echo("[Command: Set]");
-                if(!get_configuration())set_configuration();
-                Runtime.UpdateFrequency = UpdateFrequency.None;
-                set_system(number);
-                lcd_color=Color.White;
-                save_data();
+                piston=Pistons[i].Block;
+                MaxExtendableLength+=piston.HighestPosition;
+                MinExtendableLength+=piston.LowestPosition;
+                if(Pistons[i].Inverted)
+                {
+                    Length=Length-piston.HighestPosition+piston.CurrentPosition;
+                }
+                else
+                {
+                    Length-=piston.CurrentPosition;
+                }
+            }
+            Length = (float)Math.Round(Length,1,MidpointRounding.AwayFromZero);
+            Length = Math.Abs(Length);
+
+            if(_max>0 && _max<MaxExtendableLength)
+            {
+                MaxExtendableLength=_max;
+            }
+            if(_min>MinExtendableLength)
+            {
+                MinExtendableLength=_min;
+            }
+            ExtendableLength=MaxExtendableLength-MinExtendableLength;
+        }
+        Enable(false);
+    }
+    public void QuickInit(float _speed, float _digSpeed, bool _setSpeedToo=false)
+    {
+        ExtensionSpeed=Math.Abs(_speed);
+        DigSpeed=_digSpeed;
+        if(_setSpeedToo)SetSpeed();
+    }
+    public void CheckTarget()
+    {
+        IsInPosition=true;
+        for(int i=0;i<Pistons.Count;i++)
+        {
+            CurrentPiston=Pistons[i].Block;
+            if(CurrentPiston.CurrentPosition!=Pistons[i].TargetDistance)
+            {
+                IsInPosition=false;
                 break;
             }
-            case "start":
+        }
+    }
+    public bool IntegrityTest()
+    {
+        for(int i=0;i<Pistons.Count;i++)
+        {
+            CurrentPiston=Pistons[i].Block;
+            if(CurrentPiston==null || CurrentPiston.CubeGrid.GetCubeBlock(CurrentPiston.Position)==null)
             {
-                Echo("[Command: Start]");
-                if(ready_to_start)
-                {
-                    if(step<max_step)
-                    {
-                        run=true;
-                        use_high_cargo_limit=true;
-                        Runtime.UpdateFrequency = UpdateFrequency.Update100;
-                        lcd_color=Color.DodgerBlue;
+                Integrity=false;
+                return false;
+            }
+        }
+        return true;
+    }
+    public string EmergencyStop()
+    {
+        if(!Integrity)
+        {
+            for(int i=0;i<Pistons.Count;i++)
+            {
+                CurrentPiston=Pistons[i].Block;
+                if(CurrentPiston!=null && CurrentPiston.CubeGrid.GetCubeBlock(CurrentPiston.Position)!=null)CurrentPiston.Enabled=false;
+            }
+            return "[System]: Piston is Missing!\n";
+        }
+        else
+        {
+            for(int i=0;i<Pistons.Count;i++)
+            {
+                Pistons[i].Block.Enabled=false;
+            }
+            return "";
+        }
+    }
+    public void Enable(bool _on=true)
+    {
+        if(Enabled!=_on)
+        {
+            for(int i=0;i<Pistons.Count;i++)
+            {
+                Pistons[i].Block.Enabled=_on;
+            }
+            Enabled=_on;
+        }
+    }
+};
 
-                        if(use_dynamic_rotor_tensor && rotor.GetValueBool("ShareInertiaTensor"))
+public class ScreenMessage
+{
+    public bool run_indicator=true;
+    public StateType State=StateType.STANDBY;
+    
+    public string Message;
+    public string Header;
+    public string Report;
+    public string Data;
+    public Color Color;
+    
+    public bool AutoRun;
+    public bool LcdColoring;
+    public string MainTag;
+    public List<IMyTextSurface> Screens;
+
+    Dictionary<StateType,StateData> StateConfig;
+    StateData stateData;
+    IMyTextSurface CurrentScreen;
+    IMyTextSurfaceProvider CurrentProvider;
+    string[] ScreenData;
+    string CurrentString;
+    int i;
+    int n;
+
+    public ScreenMessage()
+    {
+        run_indicator=true;
+        State=StateType.STANDBY;
+        Message="";
+        Header="";
+        Report="";
+        Data="";
+        Color=Color.White;
+        AutoRun=false;
+        LcdColoring=true;
+        MainTag="";
+
+        StateConfig = new Dictionary<StateType, StateData>
+        {
+            {StateType.SET,new StateData("Set",Color.Magenta)},
+            {StateType.START,new StateData("Start",Color.Cyan)},
+            {StateType.PAUSE,new StateData("Pause",Color.Yellow)},
+            {StateType.REFRESH,new StateData("Refresh",Color.Violet)},
+            {StateType.STANDBY,new StateData("Waiting For Commands",Color.White)},
+            {StateType.EMERGENCY,new StateData("Emergency Stop",Color.Crimson)},
+            {StateType.AUTOPAUSE,new StateData("Auto Pause",Color.Gold)},
+            {StateType.ALIGNING,new StateData("Aligning...",Color.DodgerBlue)},
+            {StateType.DIGGING,new StateData("Digging...",Color.Tomato)},
+            {StateType.SETMOVINGPARTS,new StateData("Setting Moving Parts",Color.DodgerBlue)},
+            {StateType.FINISHED,new StateData("Mining Finished",Color.Lime)},
+            {StateType.ALIGNINGSTARTINGPOSITION,new StateData("Alingning Starting Position",Color.Magenta)}
+        };
+        stateData=StateConfig[StateType.STANDBY];
+
+        Screens = new List<IMyTextSurface>();
+    }
+    public void New(IMyTextSurface _surface)
+    {
+        Screens.Clear();
+        _surface.ContentType=ContentType.TEXT_AND_IMAGE;
+        Screens.Add(_surface);
+    }
+    public void AddMe(IMyTextSurface _surface)
+    {
+        _surface.ContentType=ContentType.TEXT_AND_IMAGE;
+        Screens.Add(_surface);
+    }
+    public void AddToScreens(IMyTerminalBlock _block)
+    {
+        if(_block is IMyTextPanel)
+        {
+            CurrentScreen = _block as IMyTextSurface;
+            CurrentScreen.ContentType=ContentType.TEXT_AND_IMAGE;
+            Screens.Add(CurrentScreen);
+        }
+        else
+        {
+            ScreenData=_block.CustomData.Split('\n');
+            for(i=0;i<ScreenData.Length;i++)
+            {
+                CurrentString=ScreenData[i];
+                if(CurrentString.StartsWith("@"))
+                {
+                    CurrentString=CurrentString.Substring(1);
+                    if(CurrentString.Contains(MainTag))
+                    {
+                        CurrentString=CurrentString.Replace(MainTag,"");
+                        if(Int32.TryParse(CurrentString, out n))
                         {
-                            rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                            CurrentProvider=_block as IMyTextSurfaceProvider;
+                            if(CurrentProvider.SurfaceCount>=n)
+                            {
+                                CurrentScreen=CurrentProvider.GetSurface(n);
+                                CurrentScreen.ContentType=ContentType.TEXT_AND_IMAGE;
+                                Screens.Add(CurrentScreen);
+                            }
                         }
                     }
                 }
-                else
-                {
-                    lcd_color=Color.Red;
-                    Echo("Error! System is not Ready!");
-                    Echo("You must Set the system first");
-                    Echo("to be able to Start.");
-                }
-                break;
             }
-            case "pause":
+        }
+    }
+    public void WriteToScreens()
+    {
+        if(LcdColoring)
+        {
+            for(int i=0;i<Screens.Count;i++)
             {
-                Echo("[Command: Pause]");
-                if(ready_to_start)
+                CurrentScreen=Screens[i];
+                CurrentScreen.WriteText(Message);
+                CurrentScreen.FontColor=Color;
+            }
+        }
+        else
+        {
+            for(int i=0;i<Screens.Count;i++)
+            {
+                CurrentScreen=Screens[i];
+                CurrentScreen.WriteText(Message);
+            }
+        }
+    }
+    public void ConstructMsg()
+    {
+        stateData=StateConfig[State];
+        Header=stateData.State;
+        Color=stateData.Color;
+
+        if(run_indicator)Message="[-/-/-/] ";
+        else Message="[/-/-/-] ";
+       
+        Message+=Header+"\n";
+        if(Report!="")
+        {
+            Message+=Report+"\n";
+        }
+        Message+=Data;
+    }
+    public void AddReport(string s)
+    {
+        Report+=s+"\n";
+    }
+    public void Continue()
+    {
+        run_indicator=!run_indicator;
+        Report="";
+    }
+}
+
+public class ArgumentDecoder
+{
+    public bool IsSet;
+    public bool Passed;
+    public ScriptMode Mode;
+    public int Step;
+    public string Message;
+
+    string[] data;
+    string CurrentString;
+    
+    public ArgumentDecoder()
+    {
+        IsSet=false;
+        Mode=ScriptMode.DEFAULT;
+        CurrentString="";
+        Step=0;
+        Passed=false;
+    }
+    public void New(string _arg)
+    {
+        IsSet=true;
+        Step=0;
+        Message="";
+        data=_arg.Split(';');
+        Passed=false;
+        DecodeData();
+    }
+    void DecodeData()
+    {
+        CurrentString=data[0].ToLower();
+        switch(CurrentString)
+        {
+            case "set":
+            {
+                Mode=ScriptMode.SET;
+                if(data.Length>1)
                 {
-                    Runtime.UpdateFrequency = UpdateFrequency.None;
-                    lcd_color=Color.Yellow;
-                    run=pause_moving_parts();
-                    status="Paused";
-                    save_data();
-                    if(use_dynamic_rotor_tensor && !rotor.GetValueBool("ShareInertiaTensor"))
+                    if(!Int32.TryParse(data[1], out Step))
                     {
-                        rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                        Message+="\n[Error]: Wrong Step Number!";
+                        //Set to meter instead of step
                     }
+                    else if(Step%2!=0)
+                    {
+                        Message+="\n[Error]: Step Number can't be Odd!";
+                        Step=0;
+                    }
+                    else if(Step<0)
+                    {
+                        Message+="\n[Error]: Step Number can't be Negative!";
+                        Step=0;
+                    }
+                    else Passed=true;
                 }
-                else
-                {
-                    lcd_color=Color.Red;
-                    Echo("Error! System is not Ready!");
-                    Echo("You must Set the system first");
-                    Echo("to be able to Pause.");
-                }
+                else Passed=true;
                 break;
             }
             case "refresh":
             {
-                Echo("[Command: Refresh]");
-                if(!get_configuration())set_configuration();
-                lcd_color=Color.White;
-                refresh_components();
-                save_data();
+                Mode=ScriptMode.REFRESH;
+                Passed=true;
+                break;
+            }
+            case "start":
+            {
+                Mode=ScriptMode.START;
+                Passed=true;
+                break;
+            }
+            case "pause":
+            {
+                Mode=ScriptMode.PAUSE;
+                Passed=true;
+                break;
+            }
+            case "reset":
+            {
+                Mode=ScriptMode.RESET;
+                Passed=true;
+                break;
+            }
+            case "dig":
+            {
+                Mode=ScriptMode.DIG;
+                Passed=true;
                 break;
             }
             default:
             {
-                Echo("Command doesn't found!");
-                lcd_color=Color.Red;
+                Mode=ScriptMode.DEFAULT;
+                Message+="\n[Error]: Mode doesn't found!";
                 break;
             }
         }
-        set_message();
-        list_data();
-        me_lcd.FontColor=lcd_color;
-        me_lcd.WriteText(message,false);
-        if(use_screen)write_screen();
-        if(use_antenna)send_message();
+    }
+};
+
+public enum ScriptMode
+{
+    SET,
+    REFRESH,
+    START,
+    PAUSE,
+    RESET,
+    DIG,
+    DEFAULT
+}
+
+public class EventWatcher
+{
+    public bool IsSet;
+    public bool FinishedTimerIsSet;
+    public bool StartTimerIsSet;
+    public bool PauseTimerIsSet;
+
+    IMyTimerBlock FinishedTimer;
+    IMyTimerBlock StartTimer;
+    IMyTimerBlock PauseTimer;
+
+    public EventWatcher()
+    {
+        FinishedTimerIsSet=false;
+        PauseTimerIsSet=false;
+        StartTimerIsSet=false;
+        IsSet=false;
+    }
+    public void New()
+    {
+        FinishedTimerIsSet=false;
+        StartTimerIsSet=false;
+        PauseTimerIsSet=false;
+        IsSet=false;
+    }
+    public void AddFinishedTimer(IMyTerminalBlock _block)
+    {
+        FinishedTimer=_block as IMyTimerBlock;
+        FinishedTimerIsSet=true;
+        IsSet=true;
+    }
+    public void AddStartTimer(IMyTerminalBlock _block)
+    {
+        StartTimer=_block as IMyTimerBlock;
+        StartTimerIsSet=true;
+        IsSet=true;
+    }
+    public void AddPauseTimer(IMyTerminalBlock _block)
+    {
+        PauseTimer=_block as IMyTimerBlock;
+        PauseTimerIsSet=true;
+        IsSet=true;
+    }
+    public void Finished()
+    {
+        if(FinishedTimerIsSet)FinishedTimer.StartCountdown();
+    }
+    public void Started()
+    {
+        if(StartTimerIsSet)StartTimer.StartCountdown();
+    }
+    public void Paused()
+    {
+        if(PauseTimerIsSet)PauseTimer.StartCountdown();
     }
 }
 
-public void step_analisis(int num)
+//End of Declaration
+
+public Program() 
 {
-//Calculates the v_stage and h_stage variables, based on the step
-    if(num%2==1)
-    {
-        num--;
-    }
-    if(num==0 || num==max_step)
-    {
-        v_stage=0;
-        h_stage=0;
-    }     
-    else
-    {
-        num=num/2;
-                    
-        v_stage=(int)Math.Floor(num/(double)(hp_stage_count+1));
-        if(num%(hp_stage_count+1)==0)
-        {
-            h_stage=0;
-        }
-        else 
-        {
-            h_stage=(num%(hp_stage_count+1));
-        }
-    }
-}
+    if(!GetConfig())ResetConfig();
 
-public bool step_completed()
+    Load_Data();
+    if(DigModeEnabled)//If game loads with Dig Mode Enabled, Pause the platform, just in case
+    {
+        Message.State=StateType.PAUSE;
+        EnableDigMode(false);
+        PausePlatform();
+    }
+    if(ComponentsReady)SetSystem(DebugNumber);//If Components should be ready, refresh all data about them
+    else //Get the Programmable Block's screen on very first run
+    {
+        Message.AddMe(Me.GetSurface(0));
+    }
+    if(Step.Finished)
+    {
+        Message.State=StateType.FINISHED;
+        Message.Data=ConstructBasicData();
+    }
+    else if(ComponentsReady)
+    {
+        if(ImRunning)StartScript();
+    }
+    Message.AutoRun=false;
+    UpdateScreens();
+    FirstLoad=false;
+} 
+ 
+public void Save() 
 {
-//Check if everything is in their correct place, based on the current step
-
-    double rotorAng=(180/Math.PI)*rotor.Angle;
-    rotorAng=Math.Round(rotorAng,MidpointRounding.AwayFromZero);
-
-    if(step%2==1)
+    if(ImRunning)
     {
-        if(passed_debug_zone)
-        {
-            if(target_min_rot_limit)
-            {
-                if(rotorAng==min_rot_angle)
-                {
-                    passed_debug_zone=false;
-                    return true;
-                }
-            }
-            else
-            {
-                if(rotorAng==max_rot_angle)
-                {
-                    passed_debug_zone=false;
-                    return true;
-                }
-            }
-        }
-        else
-        {
-            if(!test_if_in_debug_zone())
-            {
-                set_moving_parts(step);
-            }
-        }
-        return false;
+        TotalTime+=DateTime.Now-StartTime;
+        StartTime=DateTime.Now;
     }
-    else
-    {
-        foreach(IMyPistonBase pis in h_pistons) 
-        {
-            if(Math.Round(pis.CurrentPosition,2,MidpointRounding.AwayFromZero)!=Math.Round(hpiston_goal,2,MidpointRounding.AwayFromZero))
-            {
-               return false;
-            }
-        }
-        if(always_retract_hpistons)
-        {
-            foreach(IMyPistonBase pis in v_pistons_inv)
-            {
-                if(!pis.Enabled)pis.Enabled=true;
-            }
-            foreach(IMyPistonBase pis in v_pistons)
-            {
-                if(!pis.Enabled)pis.Enabled=true;
-            }
-        }
-        foreach(IMyPistonBase pis in v_pistons) 
-        {
-            if(Math.Round(pis.CurrentPosition,2,MidpointRounding.AwayFromZero)!=Math.Round(vpiston_goal,2,MidpointRounding.AwayFromZero))
-            {
-                return false;
-            }
-        }
-        foreach(IMyPistonBase pis in v_pistons_inv) 
-        {
-            if(Math.Round(pis.CurrentPosition,2,MidpointRounding.AwayFromZero)!=Math.Round(vpiston_goal_inv,2,MidpointRounding.AwayFromZero))
-            {
-                return false;
-            }
-        }
-        foreach(IMyPistonBase pis in h_pistons) 
-        {
-            if(Math.Round(pis.CurrentPosition,2,MidpointRounding.AwayFromZero)!=Math.Round(hpiston_goal,2,MidpointRounding.AwayFromZero))
-            {
-               return false;
-            }
-        }
-        if(step==0)
-        {
-            if(target_min_rot_limit)
-            {
-                if(rotorAng!=min_rot_angle)
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                if(rotorAng!=max_rot_angle)
-                {
-                    return false;
-                }
-            }
-            passed_debug_zone=false;
-            rotor.Enabled=false;
-            rotor.SetValueFloat("UpperLimit",max_rot_angle);
-            rotor.SetValueFloat("LowerLimit",min_rot_angle);
-        }
-        target_min_rot_limit=!target_min_rot_limit;
-        return true;
-    }
-}
+    Save_Data();
+} 
 
-public bool set_moving_parts(int step_f, bool first=false)
+public void Main(string argument, UpdateType updateSource) 
 {
-//Sets the rotor and the pistons to their correct angle, distance and speed.
-     
-    rotorAng=(180/Math.PI)*rotor.Angle;
-    rotorAng=Math.Round(rotorAng,MidpointRounding.AwayFromZero);
-
-    set_piston_goals(step_f);
-
-    if(step_f==0 || first)
+    Message.Continue();
+    if((updateSource & UpdateType.Update100)!=0)
     {
-        if(vp_count>0)
+        Message.AutoRun=true;
+        if(ImRunning)
         {
-            piston_speed=vp_vel/vp_count;
-
-            foreach(IMyPistonBase a in v_pistons) 
+            if(UpdateData())
             {
-                set_piston(a,vpiston_goal);
-            }
-            foreach(IMyPistonBase a in v_pistons_inv) 
-            {
-                set_piston(a,vpiston_goal_inv);
-            }       
-        }
-        if(hp_count>0)
-        {
-            piston_speed=hp_vel/hp_count;
-            foreach(IMyPistonBase a in h_pistons) 
-            {
-                set_piston(a,hpiston_goal);
-            }
-        }
-        rot_speed=(float)(rotor_vel_at_10m*10);
-        if(hp_count>0)
-        {
-            if(hp_extend)
-            {
-                rot_speed=(float)(rot_speed/((hp_count*piston_length)+(h_stage*hp_step_length)+excess_meters));
-            }
-            else
-            {
-                rot_speed=(float)(rot_speed/((hp_count*piston_length)+excess_meters+(hp_stage_count-h_stage)*hp_step_length));
-            }  
-        }   
-        else
-        {
-            rot_speed=(float)(rot_speed/excess_meters);
-        }
-        rotor.SetValueFloat("UpperLimit",max_rot_angle);
-        rotor.SetValueFloat("LowerLimit",min_rot_angle);
-        rotor.SetValueFloat("BrakingTorque",1000000000);
-        if(rotorAng==min_rot_angle)
-        {  
-            rotor.Enabled=false;
-            rotor.SetValueFloat("Velocity",rot_speed);
-            target_min_rot_limit=true;
-        }
-        else if(rotorAng==max_rot_angle)
-        {
-            rotor.Enabled=false;
-            rotor.SetValueFloat("Velocity",-rot_speed); 
-            target_min_rot_limit=false;         
-        }
-        else if(rotorAng==360F)
-        {
-            rotor.Enabled=false;
-            if(min_rot_angle==0F)
-            {
-                target_min_rot_limit=true;
-                rotor.SetValueFloat("Velocity",rot_speed);
-            }
-            if(max_rot_angle==0F)
-            {
-                target_min_rot_limit=false;
-                rotor.SetValueFloat("Velocity",-rot_speed);
-            }
-        }
-        else if(rotorAng<min_rot_angle)
-        {
-            if(Math.Abs(-rotorAng-max_rot_angle)<Math.Abs(min_rot_angle-rotorAng))
-            {
-                rotor.Enabled=true;
-                rotor.SetValueFloat("UpperLimit",max_rot_angle);
-                rotor.SetValueFloat("LowerLimit",max_rot_angle);
-                rotor.SetValueFloat("Velocity",-rot_speed);
-                target_min_rot_limit=false;
-            }
-            else
-            {
-                rotor.Enabled=true;
-                rotor.SetValueFloat("UpperLimit",min_rot_angle);
-                rotor.SetValueFloat("LowerLimit",min_rot_angle);
-                rotor.SetValueFloat("Velocity",rot_speed);
-                target_min_rot_limit=true;
-            }
-        }
-        else if(rotorAng>max_rot_angle)
-        {
-            if(Math.Abs(max_rot_angle-rotorAng)<Math.Abs(-rotorAng-min_rot_angle))
-            {
-                rotor.Enabled=true;
-                rotor.SetValueFloat("UpperLimit",max_rot_angle);
-                rotor.SetValueFloat("LowerLimit",max_rot_angle);
-                rotor.SetValueFloat("Velocity",-rot_speed);
-                target_min_rot_limit=false;
-            }
-            else
-            {
-                rotor.Enabled=true;
-                rotor.SetValueFloat("UpperLimit",min_rot_angle);
-                rotor.SetValueFloat("LowerLimit",min_rot_angle);
-                rotor.SetValueFloat("Velocity",rot_speed);
-                target_min_rot_limit=true;
-            }
-        }
-        else if(Math.Abs(max_rot_angle-rotorAng)>Math.Abs(min_rot_angle-rotorAng))
-        {
-            rotor.Enabled=true;
-            rotor.SetValueFloat("Velocity",-rot_speed);
-            target_min_rot_limit=true;
-        }
-        else
-        {
-            rotor.Enabled=true;
-            rotor.SetValueFloat("Velocity",rot_speed);
-            target_min_rot_limit=false;
-        }
-    }
-    else
-    {
-        if(step%2==0)
-        {
-            if(step!=0)
-            {
-                rotor.Enabled=false;
-                if(vp_count>0)
+                if(!Cargo.AutoPauseEnabled)
                 {
-                    piston_speed=vp_vel/vp_count;
-                    if(always_retract_hpistons)
+                    if(!PlatformIsMoving)StartMovingParts();
+                    if(StepCheck())
                     {
-                        foreach(IMyPistonBase a in v_pistons) 
+                        if(Step.Update())//Updated Step
                         {
-                            set_piston(a,vpiston_goal);
-                            a.Enabled=false;
+                            //Mining Finished
+                            FinishMining();
                         }
-                        foreach(IMyPistonBase a in v_pistons_inv) 
-                        {
-                            set_piston(a,vpiston_goal_inv);
-                            a.Enabled=false;
-                        }  
+                        else Message.State=StateType.SETMOVINGPARTS;
+                        SetMovingParts();
                     }
                     else
                     {
-                        foreach(IMyPistonBase a in v_pistons) 
-                        {
-                            set_piston(a,vpiston_goal);
-                        }
-                        foreach(IMyPistonBase a in v_pistons_inv) 
-                        {
-                            set_piston(a,vpiston_goal_inv);
-                        }   
+                        //Aligning
+                        if(DigModeEnabled)Message.State=StateType.DIGGING;
+                        else Message.State=StateType.ALIGNING;
                     }
-                }
-                if(hp_count>0)
-                {
-                    piston_speed=hp_vel/hp_count;
-                    foreach(IMyPistonBase a in h_pistons) 
-                    {
-                        set_piston(a,hpiston_goal);
-                    }
-                }
-            }
-        }
-        else
-        {
-            rot_speed=(float)(rotor_vel_at_10m*10);
-            if(hp_count>0)
-            {
-                if(hp_extend)
-                {
-                    rot_speed=(float)(rot_speed/((hp_count*piston_length)+excess_meters+h_stage*hp_step_length));
                 }
                 else
                 {
-                    rot_speed=(float)(rot_speed/((hp_count*piston_length)+excess_meters+(hp_stage_count-h_stage)*hp_step_length));
-                } 
+                    //Auto Pause
+                    if(PlatformIsMoving)PauseMovingParts();
+                    Message.State=StateType.AUTOPAUSE;
+                }
             }
-            else
+        }
+        else Runtime.UpdateFrequency = UpdateFrequency.None;
+    }
+    else
+    {
+        Message.AutoRun=false;
+        ArgumentData.New(argument);
+        if(ArgumentData.Passed)
+        {
+            if(ArgumentData.Mode==ScriptMode.SET || ArgumentData.Mode==ScriptMode.RESET)
             {
-                rot_speed=(float)(rot_speed/excess_meters);
-            }
-            rotor.Enabled=true;
+                if(ArgumentData.Mode==ScriptMode.PAUSE)ResetConfig();
+                Message.State=StateType.SET;
+                GetConfig();
 
+                NewSet=true;
+                EnableDigMode(false);
+                SetSystem(ArgumentData.Step);
+                NewSet=false;
 
-            if(target_min_rot_limit)
-            {
-                if(rotorAng<min_rot_angle)
+                if(ComponentsReady)
                 {
-                    rotor.SetValueFloat("Velocity",-rot_speed);
+                    Message.State=StateType.ALIGNINGSTARTINGPOSITION;
+                    Message.AddReport("[System]: Ready to Start!");
                 }
-                else if(rotorAng>=max_rot_angle)
-                {
-                    rotor.SetValueFloat("Velocity",-rot_speed);
-                }
+
+                PauseScript();
+                TotalTime = TimeSpan.Zero;
             }
-            else
+            else if(ArgumentData.Mode==ScriptMode.REFRESH)
             {
-                if(rotorAng>max_rot_angle)
+                Message.State=StateType.REFRESH;
+                refresh_components(true);
+                GetConfig(true);
+            }
+            else if(ArgumentData.Mode==ScriptMode.START)
+            {
+                Message.State=StateType.START;
+                EnableDigMode(false);
+                StartPlatform();
+            }
+            else if(ArgumentData.Mode==ScriptMode.PAUSE)
+            {
+                Message.State=StateType.PAUSE;
+                EnableDigMode(false);
+                PausePlatform();
+            }
+            else if(ArgumentData.Mode==ScriptMode.DIG)
+            {
+                if((updateSource & UpdateType.Trigger)!=0)
                 {
-                    rotor.SetValueFloat("Velocity",rot_speed);
-                }
-                else if(rotorAng>=min_rot_angle)
-                {
-                    rotor.SetValueFloat("Velocity",rot_speed);
+                    //Message.State=StateType.START;
+                    EnableDigMode();
+                    StartPlatform();
                 }
                 else
                 {
-                    rotor.SetValueFloat("Velocity",-rot_speed);
+                    Message.AddReport("[Warning]: Dig mode Invalid");
                 }
-            }
-
-            foreach(IMyPistonBase pis in v_pistons) 
-            {
-                pis.Enabled=false;
-            }
-            foreach(IMyPistonBase pis in h_pistons) 
-            {
-                pis.Enabled=false;
-            }
-        }
-        count_eta();
-    }
-    return true;
-}
-
-public void list_data(bool counts=false)
-{
-    if(counts)
-    {
-        Echo("Vertical Pistons Detected: "+vp_count);
-        Echo("Horizontal Pistons Detected: "+hp_count);
-        if(drills!=null && drills.Count>=1)
-        {
-            Echo("Drills Detected: "+drills.Count);
-        }
-        else
-        {
-            Echo("Drill: Not found!");
-        }
-        if(rotor!=null)
-        {
-            Echo("Rotor: Detected!");
-        }
-        else
-        {
-            Echo("Rotor: Not found!");
-        }
-        if(use_screen)
-        {
-            if(screens!=null && screens.Count>=1)
-            {
-                Echo("Screens Detected: "+screens.Count);
-            }
-            else
-            {
-                Echo("Screen: Not found!");
-            }
-        }      
-    }
-    else
-    {
-        Echo(message);
-    }
-}
-
-public void save_data()
-{
-    Storage=""
-// 0
-            +step+";"                               
-// 1            
-            +max_step+";"                      
-// 2            
-            +h_stage+";"                         
-// 3            
-            +hp_stage_count+";"
-// 4            
-            +v_stage+";"
-// 5            
-            +vp_stage_count+";"
-// 6            
-            +vpiston_goal+";"
-// 7            
-            +hpiston_goal+";"
-// 8            
-            +vp_count+";"
-// 9           
-            +hp_count+";"
-// 10            
-            +set_mp_happened+";"
-// 11            
-            +hp_extend+";"
-// 12            
-            +ready_to_start+";"
-// 13            
-            +run+";"
-//14
-            +vpiston_goal_inv+";"
-//15
-            +passed_debug_zone+";"
-//16
-            +use_high_cargo_limit+";"
-//17
-            +target_min_rot_limit;
-        
-    Echo("Data Saved!");
-}
-
-public void load_data()
-{
-    data=Storage.Split(';');
-    if(data.Length==18)
-    {
-        if(!Int32.TryParse(data[0], out step)){Echo("Converting |step| failed!");}
-        if(!Single.TryParse(data[1], out max_step)){Echo("Converting |max_step| failed!");}
-        if(!Int32.TryParse(data[2], out h_stage)){Echo("Converting |h_stage| failed!");}
-        if(!Int32.TryParse(data[3], out hp_stage_count)){Echo("Converting |hp_stage_count| failed!");}
-        if(!Int32.TryParse(data[4], out v_stage)){Echo("Converting |v_stage| failed!");}
-        if(!Int32.TryParse(data[5], out vp_stage_count)){Echo("Converting |vp_stage_count| failed!");}
-        if(!Single.TryParse(data[6], out vpiston_goal)){Echo("Converting |vpiston_goal| failed!");}
-        if(!Single.TryParse(data[7], out hpiston_goal)){Echo("Converting |h_piston_goal| failed!");}
-        if(!Int32.TryParse(data[8], out vp_count)){Echo("Converting |vp_count| failed!");}
-        if(!Int32.TryParse(data[9], out hp_count)){Echo("Converting |hp_count| failed!");}
-        if(!Boolean.TryParse(data[10], out set_mp_happened)){Echo("Converting |set_mp_happened| failed!");}
-        if(!Boolean.TryParse(data[11], out hp_extend)){Echo("Converting |hp_extend| failed!");}
-        if(!Boolean.TryParse(data[12], out ready_to_start)){Echo("Converting |ready_to_start| failed!");}
-        if(!Boolean.TryParse(data[13], out run)){Echo("Converting |run| failed!");}
-        if(!Single.TryParse(data[14], out vpiston_goal_inv)){Echo("Converting |v_piston_goal_inv| failed!");}
-        if(!Boolean.TryParse(data[15], out passed_debug_zone)){Echo("Converting |passed_debug_zone| failed!");}
-        if(!Boolean.TryParse(data[16], out use_high_cargo_limit)){Echo("Converting |use_high_cargo_limit| failed!");}
-        if(!Boolean.TryParse(data[17], out target_min_rot_limit)){Echo("Converting |target_min_rot_limit| failed!");}
-
-        Echo("Data Loaded!");
-    }
-    else
-    {
-        Echo("Load Failed!");
-    }
-}
-
-public bool set_system(int number)
-{
-    bool result=true;
-
-    set_mp_happened=false;  
-    hp_extend=true;
-    step=number; 
-    run=false;
-    use_high_cargo_limit=true;
-    
-    result=refresh_components();
-
-    if(result)
-    {
-        vp_stage_count=(int)Math.Ceiling(((vp_range)*vp_count)/vp_step_length);
-        hp_stage_count=(int)Math.Ceiling(((hp_range)*hp_count)/hp_step_length);
-
-        max_step=2+((1+vp_stage_count)*hp_stage_count*2)+(vp_stage_count*2);
-
-        if(step>max_step)
-        {
-            step=(int)max_step;
-        }
-        else if(step==max_step)
-        {
-            step_analisis(step);                                   
-
-            set_moving_parts(0,true);
-
-            foreach(IMyShipDrill a in drills) 
-            {
-                if(a.Enabled)a.Enabled=false;
             }
         }
         else
         {
-            step_analisis(step);                                   
-
-            set_moving_parts(step,true);
-
-            foreach(IMyShipDrill a in drills) 
-            {
-                if(!a.Enabled)a.Enabled=true;
-            }
+            Message.AddReport(ArgumentData.Message);
         }
-        status="Aligning Starting Position...";
-        Echo("\nSystem: Ready to Start!");
-
-        count_eta();
-        check_if_full();
-    } 
-    return result;
+        if(ComponentsReady)Save_Data();
+    }
+    UpdateScreens();
+    Echo("LRT: "+Runtime.LastRunTimeMs);
 }
 
-public void start_system()
+//End of Main
+
+public void UpdateScreens()
 {
-    step_analisis(step);
+    if(Step.Finished)Message.AddReport("Mining Time: "+TotalTime.ToString(@"hh\:mm\:ss"));
 
-    foreach(IMyShipDrill a in drills) 
+    Message.Data=ConstructBasicData();
+    Message.ConstructMsg();
+
+    if(SendMessage)
     {
-        if(!a.Enabled)a.Enabled=true;
+        IGC.SendUnicastMessage(TransmissionReceiverAddress,MainTag,Message.Message);
+        Message.Message+="\n[System]: Transmission Sent\n";
     }
+    if(!Message.AutoRun || AlwaysUpdateDetailedInfo)Echo(Message.Message);
 
-    if(set_mp_happened)
-    {
-        if(step_completed())
-        {
-            if(step!=max_step-1)
-            {
-                status="Step Completed!";
-                step++;
-                set_mp_happened=false;
-            }
-            else
-            {
-                step++;
-                status="Mining Completed!";
-                lcd_color=Color.Lime;
-                v_stage=0;
-                h_stage=0;
-                hp_extend=true;
-                set_moving_parts(0,true);
-
-                foreach(IMyShipDrill a in drills) 
-                {
-                    a.Enabled=false;
-                }
-                if(use_timer)
-                {
-                    timer.Enabled=true;
-                    timer.GetActionWithName("Start").Apply(timer);
-                }
-                if(use_dynamic_rotor_tensor && !rotor.GetValueBool("ShareInertiaTensor"))
-                {
-                    rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
-                }
-                run=false;
-                Runtime.UpdateFrequency = UpdateFrequency.None;
-                count_eta();
-            }
-        }
-        else
-        {
-            status="Aligning...";
-        }
-    }
-    else
-    {
-        status="Setting Moving Parts...";
-        set_mp_happened=set_moving_parts(step);
-    }     
+    Message.WriteToScreens();
 }
 
-public bool pause_moving_parts()
+public string ConstructBasicData()
 {
-    foreach(IMyPistonBase a in v_pistons) 
-    {
-        if(a.Enabled){a.Enabled=false;}
-    }
-    foreach(IMyPistonBase a in h_pistons) 
-    {
-         if(a.Enabled){a.Enabled=false;}
-    }
-    foreach(IMyShipDrill a in drills) 
-    {
-        if(a.Enabled){a.Enabled=false;}
-    }
-    if(rotor.Enabled){rotor.Enabled=false;}
+    Result="";
 
-    set_mp_happened=false;
+    Result+="Step: "+Step.Value+"/"+Step.Max+" |"+MainTag+"| ETA: "+Step.Hours+":"+Step.Minutes.ToString("D2")+"\n";
 
-    return false;
-}
-
-public void write_screen(bool log=false)
-{
-    if(!log)
+    int i;
+    Result+="Progress: [";
+    for(i=0;i<Math.Round(Step.Progression/2.5f);i++)
     {
-        if(use_lcd_color_coding)
-        {
-            foreach(IMyTextSurface a in screens)
-            {
-                a.FontColor=lcd_color;
-                a.WriteText(message,false);
-            }  
-        }
-        else
-        {
-            foreach(IMyTextSurface a in screens)
-            {
-                a.WriteText(message,false);
-            }  
-        }
-    }
-    else
-    {        
-        foreach(IMyTextPanel a in screens)
-        {
-            a.WriteText(message,true);
-        }
-    }
- 
-}
-
-public bool refresh_components()
-{    
-    ready_to_start=true;
-    use_timer=false;
-    use_timer_adv=false;
-    use_screen=false;
-    use_antenna=false;
-    use_cargo_to_check=false;
-
-    blocks = new List<IMyTerminalBlock>();
-    v_pistons = new List<IMyPistonBase>();
-    h_pistons = new List<IMyPistonBase>();
-    v_pistons_inv = new List<IMyPistonBase>();
-    drills = new List<IMyShipDrill>();
-    screens = new List<IMyTextSurface>();
-    cargos = new List<IMyTerminalBlock>();
-    i=0;k=0;l=0;m=0;
-    int n=0;
-
-    me_lcd = Me.GetSurface(0);
-    if(me_lcd.ContentType!=ContentType.TEXT_AND_IMAGE)
-    {
-        me_lcd.ContentType=ContentType.TEXT_AND_IMAGE;
-    }
-    me_lcd.FontSize=1.2F;
-    
-    GridTerminalSystem.SearchBlocksOfName(main_tag,blocks);
-    foreach(IMyTerminalBlock a in blocks)
-    {
-        if(a is IMyPistonBase)
-        {
-            piston=a as IMyPistonBase;
-            if(piston.CustomName.Contains(vp_tag))
-            {
-                if(piston.CustomName.Contains(inv_tag)) v_pistons_inv.Add(piston);
-                else v_pistons.Add(piston);    
-            }
-            else if(piston.CustomName.Contains(hp_tag))
-            {
-                h_pistons.Add(piston);
-            }
-            if(share_inertia_tensor)
-            {
-                if(!piston.GetValueBool("ShareInertiaTensor"))
-                {
-                    piston.GetActionWithName("ShareInertiaTensor").Apply(piston);
-                }
-            }
-            else
-            {
-                if(piston.GetValueBool("ShareInertiaTensor"))
-                {
-                    piston.GetActionWithName("ShareInertiaTensor").Apply(piston);
-                }
-            }
-        }
-        else if(a is IMyShipDrill)
-        {
-            drill=a as IMyShipDrill;
-            drills.Add(drill);
-        }
-        else if(a is IMyTextPanel)
-        {
-            screen=a as IMyTextSurface;
-            if(screen.ContentType!=ContentType.TEXT_AND_IMAGE)
-            {
-                screen.ContentType=ContentType.TEXT_AND_IMAGE;
-            }
-            screens.Add(screen);
-        }
-        else if(a is IMyTextSurfaceProvider && a.EntityId!=Me.EntityId)
-        {
-            if(a.HasInventory)
-            {
-                cargos.Add(a);
-            }
-            data=a.CustomData.Split('\n');
-            string subs="";
-            foreach(string s in data)
-            {
-                if(s.StartsWith("@"))
-                {
-                    subs=s.Substring(1);
-                    if(subs.Contains(main_tag))
-                    {
-                        subs=subs.Replace(main_tag,"");
-                        if(Int32.TryParse(subs, out n))
-                        {
-                            lcd_block=a as IMyTextSurfaceProvider;
-                            if(lcd_block.SurfaceCount>=n)
-                            {
-                                screen=lcd_block.GetSurface(n);
-                                if(screen.ContentType!=ContentType.TEXT_AND_IMAGE)
-                                {
-                                    screen.ContentType=ContentType.TEXT_AND_IMAGE;
-                                }
-                                screens.Add(screen);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        else if(a is IMyMotorAdvancedStator)
-        {
-            rotor = a as IMyMotorAdvancedStator;
-            if(share_inertia_tensor)
-            {
-                if(!rotor.GetValueBool("ShareInertiaTensor"))
-                {
-                    rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
-                }
-            }
-            else
-            {
-                if(rotor.GetValueBool("ShareInertiaTensor"))
-                {
-                    rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
-                }
-            }
-            i++;
-        }
-        else if(a is IMyTimerBlock)
-        {
-            if(a.CustomName.Contains(adv_tag))
-            {
-                timer_adv = a as IMyTimerBlock;
-                m++;
-            }
-            else
-            {
-                timer = a as IMyTimerBlock;
-                k++;
-            }
-        }
-        else if(a is IMyRadioAntenna)
-        {
-            antenna = a as IMyRadioAntenna;
-            l++;
-        }
-        else if(a.HasInventory)
-        {
-            cargos.Add(a);
-        }
-    }
-
-    vp_count=v_pistons.Count+v_pistons_inv.Count;
-    if(vp_count>0)
-    {
-        Echo("Vertical Pistons: "+vp_count+" ( " +v_pistons_inv.Count+" Inverted )");
-    }
-    else
-    {
-        Echo("Vertical Pistons: None");
-    }
-
-     hp_count=h_pistons.Count;
-    if(hp_count>0)
-    {
-        Echo("Horizontal Pistons: "+hp_count);
-    }
-    else
-    {
-        Echo("Horizontal Pistons: None");
-    }
-
-    if(drills.Count>=1)
-    {
-        Echo("Drills Detected: "+drills.Count);
-    }
-    else
-    {
-        Echo("Drill: Not Found!");
-        ready_to_start=false;
-    }
-    
-    if(i==1)
-    {
-        Echo("Rotor: Detected!");
-    }
-    else if(i<1)
-    {
-        Echo("Rotor: Not Found!");
-        ready_to_start=false;
-    }
-    else
-    {
-        Echo("Rotor: Too Many Rotors!");
-        ready_to_start=false;
-    }
-
-    if(screens.Count>=1)
-    {
-        Echo("Screens Detected: "+screens.Count);
-        use_screen=true;
-    }
-
-    if(k==1)
-    {
-        Echo("Basic Timer: Detected!");
-        use_timer=true;
-    }
-    else if(k>1)
-    {
-        Echo("Basic Timer: Too Many Timers!");
-    }
-
-    if(m==1)
-    {
-        Echo("Advanced Timer: Detected!");
-        use_timer_adv=true;
-    }
-    else if(m>1)
-    {
-        Echo("Advanced Timer: Too Many Timers!");
-    }
-    if(l==1)
-    {
-        Echo("Antenna: Detected!");
-        use_antenna=true;
-        antenna.EnableBroadcasting=true;
-    }
-    else if(l>1)
-    {
-        Echo("Antenna: Too Many Antennas!");
-    }
-
-
-    if(cargos.Count>=1)
-    {
-        use_cargo_to_check=true;
-        Echo("Cargo Module: "+cargos.Count);
-    }
-
-
-    if(ready_to_start)
-    {
-        Echo("System: Components Ready!");
-        if(!use_unique_piston_limits)
-        {
-            if(vp_count>0)
-            {
-                if(v_pistons.Count>0)
-                {
-                    min_vp_limit=v_pistons[0].LowestPosition;
-                    max_vp_limit=v_pistons[0].HighestPosition;
-                    min_vp_limit_inv=min_vp_limit;
-                    max_vp_limit_inv=max_vp_limit;
-                }
-                else
-                {
-                    min_vp_limit=v_pistons_inv[0].LowestPosition;
-                    max_vp_limit=v_pistons_inv[0].HighestPosition;
-                    min_vp_limit_inv=min_vp_limit;
-                    max_vp_limit_inv=max_vp_limit;
-                }
-                if(max_vp_limit<vp_step_length)
-                {
-                    vp_step_length=max_vp_limit;
-                }
-            }
-            if(hp_count>0)
-            {
-                min_hp_limit=h_pistons[0].LowestPosition;
-                max_hp_limit=h_pistons[0].HighestPosition;
-                if(max_hp_limit<hp_step_length)
-                {
-                    hp_step_length=max_hp_limit;
-                }
-                if(max_hp_limit==2F)
-                {
-                    piston_length=1F;
-                }
-            }
-        }
-        hp_range=max_hp_limit-min_hp_limit;
-        vp_range=max_vp_limit-min_vp_limit;
-
-        set_step_length();
-
-        debug_zone_bottom=min_rot_angle+((max_rot_angle-min_rot_angle)*0.25F);
-        debug_zone_top=max_rot_angle-((max_rot_angle-min_rot_angle)*0.25F);
-    }
-    else 
-    {
-        Echo("\nSystem: Components Not Ready!");
-        Runtime.UpdateFrequency = UpdateFrequency.None;
-        run=false;
-    }
-    return ready_to_start;
-}
-
-public bool check_if_full(bool state=false)
-{
-    maxvolume=0;
-    curvolume=0;
-    if(use_cargo_to_check)
-    {
-        foreach(IMyTerminalBlock a in cargos)
-        {
-            maxvolume += a.GetInventory(0).MaxVolume;   
-            curvolume += a.GetInventory(0).CurrentVolume;
-        }
-    }
-    else
-    {
-        maxvolume = drills[0].GetInventory(0).MaxVolume;   
-        curvolume = drills[0].GetInventory(0).CurrentVolume;
-    }
-    cargo_curr_volume=(float)curvolume/(float)maxvolume;
-
-    if(state)
-    {
-        if(cargo_curr_volume>=cargo_high_limit)
-        {
-            cargo_curr_volume=(float)Math.Round(cargo_curr_volume*100);
-            use_high_cargo_limit=false;
-            return true;
-        }
-        else
-        {
-            cargo_curr_volume=(float)Math.Round(cargo_curr_volume*100);
-            return false;
-        }
-    }
-    else
-    {
-        if(cargo_curr_volume<=cargo_low_limit)
-        {
-            cargo_curr_volume=(float)Math.Round(cargo_curr_volume*100);
-            use_high_cargo_limit=true;
-            return false;
-        }
-        else
-        {
-            cargo_curr_volume=(float)Math.Round(cargo_curr_volume*100);
-            return true;
-        }
-    }
-    
-}
-
-public void set_step_length()
-{ 
-    if(use_unique_hp_step_length)
-    {
-        vp_step_length=vp_step_length*10;
-        if(vp_step_length%1!=0)
-        {
-             vp_step_length=vp_step_length*10;
-            if(vp_step_length%1==0)
-            {
-                vp_step_length+=0.1F;
-            }
-            vp_step_length=(float)(Math.Ceiling(vp_step_length)/100);
-        }
-        else
-        {
-            vp_step_length=vp_step_length/10;
-        }
-
-        hp_step_length=hp_step_length*10;
-        if(hp_step_length%1!=0)
-        {
-             hp_step_length=hp_step_length*10;
-            if(hp_step_length%1==0)
-            {
-                hp_step_length+=0.1F;
-            }
-            hp_step_length=(float)(Math.Ceiling(hp_step_length)/100);
-        }
-        else
-        {
-            hp_step_length=hp_step_length/10;
-        }
-    }
-    else if(hp_count>0)
-    {
-        hp_step_length=(float)Math.Ceiling((hp_count*(hp_range))/((drills.Count*2.5)+0.84));
-        hp_step_length=(float)(Math.Ceiling(((hp_range)/hp_step_length)*100)/100);
-        hp_step_length=hp_count*hp_step_length;
-    }
-}
-
-public void count_eta()
-{
-    float result=0;
-    
-    if(step==max_step)
-    {
-        eta_h=0;
-        eta_m=0;
-    }
-    else
-    {
-        rot_speed=(float)(rotor_vel_at_10m*10);
-    
-        if(hp_count==0)
-        {
-            result+=((1/((float)(rot_speed/excess_meters))));
-            result=result*(vp_stage_count+1-v_stage);
-        }
-        else
-        {
-            float length=(hp_count*piston_length)+excess_meters;
-            for(i=0;i<hp_stage_count+1;i++)
-            {
-                result+=1/((float)(rot_speed/(length+i*hp_step_length)));
-            }
-
-            result=result*(vp_stage_count+1-v_stage);
-
-            if(hp_extend)
-            {
-                for(i=0;i<h_stage;i++)
-                {
-                    result-=1/((float)(rot_speed/(length+i*hp_step_length)));
-                }
-            }
-            else
-            {
-                for(i=0;i<h_stage;i++)
-                {
-                    result-=1/((float)(rot_speed/(length+(hp_stage_count-i)*hp_step_length)));
-                }
-            }
-        }   
-        
-        result=result*60*((max_rot_angle-min_rot_angle)/360);
-   
-        if(vp_count!=0)
-        {
-            result+=(vp_stage_count-v_stage)*(vp_range*vp_count/vp_vel/vp_stage_count);
-        }
-        if(hp_count!=0)
-        {
-            result+=(vp_stage_count+1-v_stage-h_stage)*(hp_range*hp_count/hp_vel/hp_stage_count);
-            if(always_retract_hpistons)
-            {
-                result+=(hp_range*hp_count/hp_vel)*(vp_stage_count+1-v_stage);
-            }
-        }
-        
-        result+=(max_step-step)*2F;
-
-        result=(float)Math.Ceiling(result);
-  
-        eta_h=(int)Math.Floor((double)result/3600);
-        eta_m=(int)Math.Ceiling(((double)result%3600)/60);
-    }
-}
-
-public bool test_if_in_debug_zone()
-{
-    rotorAng=(180/Math.PI)*rotor.Angle;
-    rotorAng=Math.Round(rotorAng,MidpointRounding.AwayFromZero);
-
-    if(rotorAng>=debug_zone_bottom && rotorAng<=debug_zone_top)
-    {
-        passed_debug_zone=true;
-        return true;
-    }
-    return false;
-}
-
-public void set_piston_goals(int num)
-{
-    if(vp_count>0)
-    {
-        vpiston_goal=min_vp_limit+((vp_step_length*v_stage)/vp_count);
-        vpiston_goal=(float)(Math.Round((double)vpiston_goal,2,MidpointRounding.AwayFromZero));
-        vpiston_goal_inv=max_vp_limit_inv+min_vp_limit-vpiston_goal;
-        if(vpiston_goal>max_vp_limit)
-        {
-            vpiston_goal=max_vp_limit;
-        }
-        if(vpiston_goal_inv<min_vp_limit_inv)
-        {
-            vpiston_goal_inv=min_vp_limit_inv;
-        }    
-    }
-    if(hp_count>0)
-    {
-        if((num/2)%(hp_stage_count+1)==0 && !always_retract_hpistons)
-        {
-            if(v_stage%2==0)
-            {
-                hp_extend=true;
-            }
-            else
-            {
-                hp_extend=false;
-            }
-        }
-        if(hp_extend)
-        {
-            hpiston_goal=min_hp_limit+((hp_step_length*h_stage)/hp_count);
-            hpiston_goal=(float)(Math.Round((double)hpiston_goal,2,MidpointRounding.AwayFromZero));
-
-            if(hpiston_goal>max_hp_limit)
-            {
-                hpiston_goal=max_hp_limit;
-            }
-        }
-        else
-        {
-            hpiston_goal=max_hp_limit-((hp_step_length*h_stage)/hp_count);
-            hpiston_goal=(float)(Math.Round((double)hpiston_goal,2,MidpointRounding.AwayFromZero));
-            if(hpiston_goal<min_hp_limit)
-            {
-                hpiston_goal=min_hp_limit;
-            }
-        }
-    }
-}
-
-public void set_piston(IMyPistonBase a,float p_goal)
-{
-    if(!a.Enabled)a.Enabled=true;
-    a.SetValueFloat("LowerLimit",p_goal);
-    a.SetValueFloat("UpperLimit",p_goal);
-    if(a.CurrentPosition>a.GetValueFloat("UpperLimit"))
-    {
-        a.SetValueFloat("Velocity",-piston_speed);
-    }
-    else
-    {
-        a.SetValueFloat("Velocity",piston_speed);
-    }
-}
-
-public void send_message()
-{
-    if(antenna.Enabled && antenna.EnableBroadcasting)
-    {
-        IGC.SendUnicastMessage(receiver_address,main_tag,message);
-        Echo("Message Sent!");    
-    }
-    else
-    {
-        Echo("Error! Antenna isn't broadcasting!");
-    }
-}
-
-public void set_message()
-{
-    progress=(int)Math.Round(((step/max_step)*100));
-    if(run_indicator){
-        message="[-/-/-/] ";
-    }
-    else{    
-        message="[/-/-/-] ";
-    }
-    run_indicator=!run_indicator;
-    message+=status+"\n";
-    message+="Step: "+step+"/"+max_step+" | "+main_tag+" | ETA: "+eta_h+"h "+eta_m+"m\n";;
-
-    float progr=progress/2.5F;
-    message+="Progress: [";
-    for(i=0;i<Math.Round(progr);i++)
-    {
-        message+="|";
+        Result+="|";
     }   
     while(i<40)
     {
-        message+="'";
+        Result+="'";
         i++;
     }
-    message+="] "+progress+"%\n";
+    Result+="] "+Step.Progression+"%\n";
 
-    if(use_cargo_to_check)
+    if(Cargo.ShowOnScreen)Result+=Cargo.ConstructMsg();
+    if(ShowAdvancedData)Result+=GatherAdvancedData();
+
+    return Result;
+}
+
+public string GatherAdvancedData()
+{
+    Result=""
+    +"Rot-Dig: "+MainRotor.UseDigSpeed+" DSp: "+MainRotor.DigSpeed+"\n"
+    +"Rotor: "+MainRotor.CurrentAngle+"°| +: "+MainRotor.RotateToMax+" | "+MainRotor.TargetSpeed+"rpm\n"
+    +"H-Arm-L: "+HorizontalArm.Length+"m| H-Arm-Ext: "+HorizontalArm.ExtendableLength+"m\n"
+    +"H-Arm-Max: "+HorizontalArm.MaxExtendableLength+"m| Min: "+HorizontalArm.MinExtendableLength+"m\n"
+    +"V-Arm-Ext: "+VerticalArm.ExtendableLength+"m| D-Arm-L: "+DrillArm.Length+"m\n"
+    +"V-Arm-Max: "+VerticalArm.MaxExtendableLength+"m| Min: "+VerticalArm.MinExtendableLength+"m\n"
+    +"HStep-L: "+HorizontalArm.StepLength+"m| VStep-L: "+VerticalArm.StepLength+"m\n"
+    +"HStep: "+Step.H+"/"+Step.MaxH+"| VStep: "+Step.V+"/"+Step.MaxV+"| ExtH: "+Step.ExtendH+"\n"
+    +"H-Arm-T: "+HorizontalArm.ArmTargetDistance+"m| V-Arm-T: "+VerticalArm.ArmTargetDistance+"m\n"
+    +"DbZ: "+MainRotor.DebugZoneLowDeg+"°| "+MainRotor.DebugZoneHighDeg+"°| Pass: "+MainRotor.PassedDebugZone+"\n"
+    +"AtP: "+Cargo.AutoPauseEnabled+" |HT: "+Cargo.HighTarget+"|R-ConT: "+MainRotor.ConstantTensor+"\n"
+    +"HStp: "+Step.Horizontal+" | Fst: "+Step.First+"| TrC: "+MainRotor.TensorTimer+"\n"
+    +"InPos: R:"+MainRotor.IsInPosition+" | H:"+HorizontalArm.IsInPosition+"| V:"+VerticalArm.IsInPosition+"\n"
+    +"H-A-Spd: "+HorizontalArm.ActualSpeed+" | V-A-Spd: "+VerticalArm.ActualSpeed+"\n"
+    +"CmpR: "+ComponentsReady+"|ImR: "+ImRunning+"|PiM: "+PlatformIsMoving+"\n"
+    //+"MxT: "+Step.MaxTime+"s|CrT: "+Step.CurrentTime+"s\n"
+    //+"R-IR: "+MainRotor.InnerRadius()+" | AFRT: "+Step.AFullRotationTime+"\n"
+    //+"V-ExT: "+VerticalArm.StepExtensionTime()+"\n"
+    //+"H-ExT: "+HorizontalArm.StepExtensionTime()+"\n"
+    //+"STime: "+StartTime.ToString("T")+"\n"
+    //+"TTime: "+TotalTime.ToString("c")+"\n"
+    +"";
+    return Result;
+}
+
+public string ComponentReport()
+{
+    Result="";
+
+    Result+="Rotor: Found | Drills: "+DrillArm.Drills.Count+"\n";
+    int p_count=0;
+    int p_inv_count=0;
+    for(int i=0;i<HorizontalArm.Pistons.Count;i++)
     {
-        progr=cargo_curr_volume/2.5F;
-        message+="Cargo:      [";
-        for(i=0;i<Math.Round(progr);i++)
-        {
-            message+="|";
-        }   
-        while(i<40)
-        {
-            message+="'";
-            i++;
-        }
-        message+="] "+cargo_curr_volume+"%\n";
+        if(HorizontalArm.Pistons[i].Inverted)p_inv_count++;
+        else p_count++;
     }
-    if(show_advanced_data)
+    if(HorizontalArm.Pistons.Count>0)Result+="Horizontal P: "+p_count+" | Inverted: "+p_inv_count+"\n";
+    p_inv_count=0;
+    p_count=0;
+    for(int i=0;i<VerticalArm.Pistons.Count;i++)
     {
-        if(ready_to_start)
-        {
-            rotorAng=(180/Math.PI)*rotor.Angle;
-            rotorAng=Math.Round(rotorAng,MidpointRounding.AwayFromZero);
+        if(VerticalArm.Pistons[i].Inverted)p_inv_count++;
+        else p_count++;
+    }
+    if(VerticalArm.Pistons.Count>0)Result+="Vertical P: "+p_count+" | Inverted: "+p_inv_count+"\n";
+    if(Message.Screens.Count>1)Result+="Screens: "+(Message.Screens.Count-1)+"\n";
+    if(UseCargoModule)Result+="Cargo: "+Cargo.Count+"\n";
+    if(TimerEvent.IsSet)
+    {
+        Result+="Timers: ";
+        if(TimerEvent.FinishedTimerIsSet)Result+="| Finished";
+        if(TimerEvent.StartTimerIsSet)Result+=" | Start";
+        if(TimerEvent.PauseTimerIsSet)Result+=" | Stop";
+        Result+="\n";
+    }
+    if(SendMessage)
+    {
+        Result+="[System]: Transmission Enabled\n";
+        if(!AntennaFound)Result+="[Warning]: Antenna Error!\n";
+    }
+    Result+="\n[System]: Components Ready!";
+    
+    return Result;
+}
 
-            message+="HStage: "+h_stage+"/"+hp_stage_count+" | "+"VStage: "+v_stage+"/"+vp_stage_count+"\n";
-            message+="VP Goal: "+vpiston_goal+ "m|VP Goal Inv: "+vpiston_goal_inv+"m\n";
-            message+="HP Goal: "+hpiston_goal+"m|HP Step Length: "+hp_step_length+"m\n";  
-            message+="Rotor Vel: "+Math.Round(rotor.GetValueFloat("Velocity"),2)+" | Rot Angle: "+rotorAng+"°\n";
-            message+="Set Mp Hap: "+set_mp_happened+" | HP Extend: "+hp_extend+"\n";
-            message+="Ready to Start: "+ready_to_start+" | Run: "+run+"\n";
-            message+="Rot Debug Zone: "+debug_zone_bottom+" - "+debug_zone_top+"\n";
-            message+="Passed DBZ: "+passed_debug_zone+" TMRL: "+target_min_rot_limit+"\n";
+public void refresh_components(bool optionalOnly=false)
+{
+    bool rotor_found=false;
+    bool drill_found=false;
+
+    blocks.Clear();
+    GridTerminalSystem.SearchBlocksOfName(MainTag,blocks);
+
+    if(!optionalOnly)
+    {
+        VerticalArm.New();
+        HorizontalArm.New();
+        DrillArm.New();
+        
+        IMyAttachableTopBlock top;
+        for(int i=0;i<blocks.Count;i++)
+        {
+            if(!rotor_found && blocks[i] is IMyMotorAdvancedStator)
+            {
+                MainRotor.New(blocks[i] as IMyMotorStator);
+                if(ShareInertiaTensor || DynamicRotorTensor)
+                {
+                    MainRotor.EnableTensor();
+                }
+                rotor_found=true;
+                break;
+            }
+        }
+        if(rotor_found)
+        {
+            double VectorDot=0;
+            
+            top = MainRotor.Rotor.Top;
+            Vector3D RotorVector = MainRotor.Position;
+            Vector3D BaseVector = MainRotor.DirectionVector;
+            BaseVector.Normalize();
+            Vector3D CheckVector;
+            IMyPistonBase piston;
+            ITerminalAction Tensor=MainRotor.InertiaTensor;
+            for(int i=0;i<blocks.Count;i++)
+            {
+                if(blocks[i] is IMyPistonBase)
+                {
+                    piston=blocks[i] as IMyPistonBase;
+                    if(ShareInertiaTensor)
+                    {
+                        if(!piston.GetValueBool("ShareInertiaTensor"))
+                        {
+                            Tensor.Apply(piston);
+                        }
+                    }
+                    if(piston.CustomName.Contains(VerTag))
+                    {
+                        if(piston.CustomName.Contains(InvTag))VerticalArm.Pistons.Add(new PistonBlock(piston,true));
+                        else VerticalArm.Pistons.Add(new PistonBlock(piston));
+                    }
+                    else if(piston.CustomName.Contains(HorTag))
+                    {
+                        if(piston.CustomName.Contains(InvTag))HorizontalArm.Pistons.Add(new PistonBlock(piston,true));
+                        else HorizontalArm.Pistons.Add(new PistonBlock(piston));
+                    }
+                    else if(SmartDetection)
+                    {
+                        top = piston.Top;
+                        CheckVector = piston.GetPosition();
+                        CheckVector = CheckVector - top.GetPosition();
+                        CheckVector.Normalize();
+
+                        VectorDot=Vector3D.Dot(BaseVector,CheckVector);
+                        if(VectorDot>0.9f)
+                        {
+                            if(piston.CustomName.Contains(InvTag))VerticalArm.Pistons.Add(new PistonBlock(piston,true));
+                            else VerticalArm.Pistons.Add(new PistonBlock(piston));
+                        }
+                        else if (VectorDot<0.1f && VectorDot>-0.1f)
+                        {
+                            if(piston.CustomName.Contains(InvTag))HorizontalArm.Pistons.Add(new PistonBlock(piston,true));
+                            else HorizontalArm.Pistons.Add(new PistonBlock(piston));
+                        }
+                        else if(VectorDot<0.9f)
+                        {
+                            if(piston.CustomName.Contains(InvTag))VerticalArm.Pistons.Add(new PistonBlock(piston,true));
+                            else VerticalArm.Pistons.Add(new PistonBlock(piston));
+                        }
+                    }
+                }
+                else if(blocks[i] is IMyShipDrill)
+                {
+                    DrillArm.Drills.Add(blocks[i] as IMyShipDrill);
+                    drill_found=true;
+                }
+            }
+            if(!drill_found)
+            {
+                Message.AddReport("[Error]: Drill Not Found!");
+                ComponentsReady=false;
+            }
+            else
+            {
+                ComponentsReady=true;
+                DrillArm.Init(ManualDrillArmLength,RotorVector);
+                VerticalArm.Init(DrillArm.FurthestVector,SmartDetection,MinVerticalLimit,MaxVerticalLimit);
+                HorizontalArm.Init(DrillArm.FurthestVector,SmartDetection,MinHorizontalLimit,MaxHorizontalLimit);
+            }
+        }
+        else 
+        {
+            ComponentsReady=false;
+            Message.AddReport("[Error]: Rotor Not Found!");
+        }
+    }
+
+    TimerEvent.New();
+    Message.New(Me.GetSurface(0));
+
+    for(int i=0;i<blocks.Count;i++)
+    {
+        block = blocks[i];
+        if(block is IMyTextSurfaceProvider)
+        {
+            Message.AddToScreens(block);
+        }
+        else if(block is IMyTimerBlock)
+        {
+            if(block.CustomName.Contains(FinishedTimerTag))
+            {
+                if(TimerEvent.FinishedTimerIsSet)Message.AddReport("[Warning]: Multiple Timers of same Type!");
+                else TimerEvent.AddFinishedTimer(block);
+            }
+            if(block.CustomName.Contains(StartTimerTag))
+            {
+                if(TimerEvent.StartTimerIsSet)Message.AddReport("[Warning]: Multiple Timers of same Type!");
+                else TimerEvent.AddStartTimer(block);
+            }
+            if(block.CustomName.Contains(PauseTimerTag))
+            {
+                if(TimerEvent.PauseTimerIsSet)Message.AddReport("[Warning]: Multiple Timers of same Type!");
+                else TimerEvent.AddPauseTimer(block);
+            }
+        }
+    }
+    
+
+    
+
+    if(ComponentsReady)
+    {
+        if(TransmissionReceiverAddress!=0)
+        {
+            SendMessage=true;
+            if(IGC.IsEndpointReachable(TransmissionReceiverAddress,TransmissionDistance.AntennaRelay))AntennaFound=true;
+            else AntennaFound=false;
+            
+        }
+        
+        
+        else SendMessage=false;
+
+        Cargo.New(blocks,UseCargoContainersOnly,HighCargoLimit,LowCargoLimit);
+        UseCargoModule=Cargo.ShowOnScreen;
+        if(UseAutoPause)
+        {
+            Cargo.CheckIfFilled();
+            if(Cargo.AutoPauseEnabled)
+            {
+                if(!NewSet && !FirstLoad && PlatformIsMoving)PauseMovingParts();
+                Message.State=StateType.AUTOPAUSE;
+            }
+            else if(!NewSet && !FirstLoad && !PlatformIsMoving)StartMovingParts();
+        }
+
+        if(!FirstLoad)Message.AddReport(ComponentReport());
+    }
+    else Message.AddReport("[System]: Missing Components!");
+}
+
+public void EnableDigMode(bool _enable=true)
+{
+    if(DigModeEnabled!=_enable)
+    {
+        DigModeEnabled=_enable;
+        MainRotor.UseDigSpeed=_enable;
+        VerticalArm.UseDigSpeed=_enable;
+        HorizontalArm.UseDigSpeed=_enable;
+
+        if(_enable)
+        {
+
+            Step.DigModeChange(
+                Math.Ceiling(HorizontalArm.ExtendableLength/HorizontalArm.DigStepLength),
+                Math.Ceiling(VerticalArm.ExtendableLength/VerticalArm.DigStepLength)
+            );
+
+            Step.NewETA(
+                VerticalArm.StepExtensionTime(),
+                HorizontalArm.StepExtensionTime(),
+                HorizontalArm.Length,
+                HorizontalArm.DigStepLength,
+                MainRotor.InnerRadius(),
+                MainRotor.DigSpeed);
         }
         else
         {
-            message+="System Not Ready!\n Advanced Data cannot be shown!\n";
+            Step.DigModeChange(
+                Math.Ceiling(HorizontalArm.ExtendableLength/HorizontalArm.StepLength),
+                Math.Ceiling(VerticalArm.ExtendableLength/VerticalArm.StepLength)
+            );
+
+            Step.NewETA(
+                VerticalArm.StepExtensionTime(),
+                HorizontalArm.StepExtensionTime(),
+                HorizontalArm.Length,
+                HorizontalArm.StepLength,
+                MainRotor.InnerRadius(),
+                MainRotor.Speed);
         }
     }
 }
 
-public bool get_configuration()
+public void SetMovingParts()
 {
-    if(Me.CustomData.StartsWith("@Configuration"))
+    if(FirstLoad)
     {
-        string[] config=Me.CustomData.Split('|');
-        if(config.Length==64)
+        Load_Data(false,false);
+
+        HorizontalArm.SetToTarget(Step.H,Step.ExtendH);
+        VerticalArm.SetToTarget(Step.V);
+        if(!Step.Finished)
         {
-            bool result=true;
-            main_tag=config[2];
-
-            if(!Boolean.TryParse(config[4], out use_auto_pause)){Echo("Getting use_auto_pause failed!");result=false;}
-            if(!Single.TryParse(config[6], out cargo_high_limit)){Echo("Getting cargo_high_limit failed!");result=false;}
-            if(!Single.TryParse(config[8], out cargo_low_limit)){Echo("Getting cargo_low_limit failed!");result=false;}
-            if(!Boolean.TryParse(config[10], out show_advanced_data)){Echo("Getting show_advanced_data failed!");result=false;}
-            if(!Boolean.TryParse(config[12], out use_lcd_color_coding)){Echo("Getting use_lcd_color_coding failed!");result=false;}
-            if(!Boolean.TryParse(config[14], out share_inertia_tensor)){Echo("Getting share_inertia_tensor failed!");result=false;}
-            if(!Boolean.TryParse(config[16], out use_dynamic_rotor_tensor)){Echo("Getting use_dynamic_rotor_tensor failed!");result=false;}
-            if(!Int64.TryParse(config[18], out receiver_address)){Echo("Getting receiver_address failed!");result=false;}
-
-            if(!Single.TryParse(config[20], out max_rot_angle)){Echo("Getting max_rot_angle failed!");result=false;}
-            if(!Single.TryParse(config[22], out min_rot_angle)){Echo("Getting min_rot_angle failed!");result=false;}
-            if(!Single.TryParse(config[24], out excess_meters)){Echo("Getting excess_meters failed!");result=false;}
-            if(!Single.TryParse(config[26], out vp_step_length)){Echo("Getting vp_step_length failed!");result=false;}
-            if(!Boolean.TryParse(config[28], out use_unique_hp_step_length)){Echo("Getting use_unique_hp_step_length failed!");result=false;}
-            if(!Single.TryParse(config[30], out hp_step_length)){Echo("Getting hp_step_length failed!");result=false;}
-            if(!Boolean.TryParse(config[32], out always_retract_hpistons)){Echo("Getting always_retract_hpistons failed!");result=false;}
-
-            if(!Boolean.TryParse(config[34], out use_unique_piston_limits)){Echo("Getting use_unique_piston_limits failed!");result=false;}
-            if(!Single.TryParse(config[36], out max_vp_limit)){Echo("Getting max_vp_limit failed!");result=false;}
-            if(!Single.TryParse(config[38], out min_vp_limit)){Echo("Getting min_vp_limit failed!");result=false;}
-            if(!Single.TryParse(config[40], out max_vp_limit_inv)){Echo("Getting max_vp_limit_inv failed!");result=false;}
-            if(!Single.TryParse(config[42], out min_vp_limit_inv)){Echo("Getting min_vp_limit_inv failed!");result=false;}
-            if(!Single.TryParse(config[44], out max_hp_limit)){Echo("Getting max_hp_limit failed!");result=false;}
-            if(!Single.TryParse(config[46], out min_hp_limit)){Echo("Getting min_hp_limit failed!");result=false;}
-            if(!Single.TryParse(config[48], out vp_vel)){Echo("Getting vp_vel failed!");result=false;}
-            if(!Single.TryParse(config[50], out hp_vel)){Echo("Getting hp_vel failed!");result=false;}
-            if(!Single.TryParse(config[52], out rotor_vel_at_10m)){Echo("Getting rotor_vel_at_10m failed!");result=false;}
-            if(!Single.TryParse(config[54], out piston_length)){Echo("Getting piston_length failed!");result=false;}
-
-            hp_tag=config[56];
-            vp_tag=config[58];
-            inv_tag=config[60];
-            adv_tag=config[62];
-            if(result)
-            {
-                Echo("Configuration Done!");
-                return true;
-            }
-            else
-            {
-                Echo("Configuration Error!");
-                return false;
-            }
+            MainRotor.SetToTarget(HorizontalArm.EffectiveTargetDistance(),NewSet);
+            MainRotor.SetSpeed(HorizontalArm.EffectiveTargetDistance());
         }
-        else
+        if(!Step.Odd)MainRotor.EnableTensorStatic();
+    }
+    else if(Step.Finished)
+    {
+        if(!DigModeEnabled)
         {
-            Echo("Getting Configuration failed!");
-            return false;
+            VerticalArm.SetToTarget(Step.V);
+            HorizontalArm.SetToTarget(Step.H,Step.ExtendH);
         }
+        MainRotor.EnableTensorStatic();
+    }
+    else if(Step.Odd)
+    {
+        MainRotor.SetToTarget(HorizontalArm.EffectiveTargetDistance(),NewSet);
+        MainRotor.EnableTensorStatic(false);
     }
     else
     {
-        Echo("Getting Configuration failed!");
+        if(NewSet)
+        {
+            VerticalArm.SetToTarget(Step.V);
+            HorizontalArm.SetToTarget(Step.H,Step.ExtendH);
+            MainRotor.SetToTarget(HorizontalArm.EffectiveTargetDistance(),NewSet);
+        }
+        else
+        {
+            if(Step.Horizontal)HorizontalArm.SetToTarget(Step.H,Step.ExtendH);
+            else if(AlwaysRetractHorizontalPistons)
+            {
+                HorizontalArm.SetToTarget(Step.H,Step.ExtendH);
+                VerticalArm.SetToTarget(Step.V);
+                VerticalArm.Enable(false);
+            }
+            else VerticalArm.SetToTarget(Step.V);
+        }
+        MainRotor.EnableTensorStatic();
+    }
+    Step.UpdateETA();
+}
+
+public void StartMovingParts()
+{
+    VerticalArm.Enable();
+    HorizontalArm.Enable();
+    if(DigModeEnabled)DrillArm.Enable(false);
+    else DrillArm.Enable();
+    MainRotor.Rotor.Enabled=true;
+    if(!NewSet && !FirstLoad)TimerEvent.Started();
+
+    PlatformIsMoving=true;
+    if(Step.Odd)MainRotor.EnableTensorStatic(false);
+}
+
+public void PauseMovingParts()
+{
+    VerticalArm.Enable(false);
+    HorizontalArm.Enable(false);
+    DrillArm.Enable(false);
+    MainRotor.Rotor.Enabled=false;
+    TimerEvent.Paused();
+
+    PlatformIsMoving=false;
+    MainRotor.EnableTensorStatic();
+}
+
+public void FinishMining()
+{
+    DrillArm.Enable(false);
+    PauseScript();
+    Message.State=StateType.FINISHED;
+    PlatformIsMoving=false;
+    TimerEvent.Finished();
+    //MainRotor.EnableTensorStatic(); Done in SetMovingParts
+    Save_Data(); 
+}
+
+public void StartScript()
+{
+    Runtime.UpdateFrequency = UpdateFrequency.Update100;
+    ImRunning=true;
+    StartTime=DateTime.Now;
+}
+
+public void PauseScript()
+{
+    Runtime.UpdateFrequency = UpdateFrequency.None;
+    ImRunning=false;
+    TotalTime+=DateTime.Now-StartTime;
+}
+
+public void SetSystem(int _step=0)
+{
+    refresh_components();
+    if(ComponentsReady)
+    {
+        VerticalArm.SetStepLength(VpStepLength);
+        if(AdaptiveHorizontalExtension)HorizontalArm.SetStepLength(DrillArm.Length,true);
+        else HorizontalArm.SetStepLength(HpStepLength);
+
+        Step.New(_step,
+                    Math.Ceiling(HorizontalArm.ExtendableLength/HorizontalArm.StepLength),
+                    Math.Ceiling(VerticalArm.ExtendableLength/VerticalArm.StepLength),
+                    AlwaysRetractHorizontalPistons,
+                    NewSet
+                    );
+
+        MainRotor.Init(MaxRotorAngle,MinRotorAngle);
+
+        Step.NewETA(
+                VerticalArm.StepExtensionTime(),
+                HorizontalArm.StepExtensionTime(),
+                HorizontalArm.Length,
+                HorizontalArm.StepLength,
+                MainRotor.InnerRadius(),
+                MainRotor.Speed);
+
+        SetMovingParts();
+        if(NewSet)StartMovingParts();
+        if(FirstLoad)
+        {
+            if(PlatformIsMoving)
+            {
+                if(Step.Odd)MainRotor.EnableTensorStatic(false);
+            }
+            else
+            {
+                MainRotor.EnableTensorStatic();
+            }
+        }
+    }
+}
+
+public bool StepCheck()
+{
+    StepCheckResult=false;
+    if(Step.Odd)
+    {
+        if(!Step.First)MainRotor.SetLimits();
+        if(MainRotor.IsInPosition)StepCheckResult=true;
+        else MainRotor.CheckTarget();
+    }
+    else if(Step.First)
+    {
+        if(HorizontalArm.IsInPosition && VerticalArm.IsInPosition && MainRotor.IsInPosition)StepCheckResult=true;
+        else 
+        {
+            HorizontalArm.CheckTarget();
+            VerticalArm.CheckTarget();
+            MainRotor.CheckTarget();
+        }
+    }
+    else if(Step.Horizontal)
+    {
+        if(HorizontalArm.IsInPosition)StepCheckResult=true;
+        else HorizontalArm.CheckTarget();
+    }
+    else if(AlwaysRetractHorizontalPistons)
+    {
+        if(HorizontalArm.IsInPosition)
+        {
+            VerticalArm.Enable();
+            if(VerticalArm.IsInPosition)StepCheckResult=true;
+            else VerticalArm.CheckTarget();
+        }
+        else HorizontalArm.CheckTarget();
+    }
+    else
+    {
+        if(VerticalArm.IsInPosition)StepCheckResult=true;
+        else VerticalArm.CheckTarget();
+    }
+    return StepCheckResult;
+}
+
+public bool IntegrityCheck()
+{
+    if(MainRotor.IntegrityTest() && DrillArm.IntegrityTest() && VerticalArm.IntegrityTest() && HorizontalArm.IntegrityTest())return true;
+    else return false;
+}
+
+public bool UpdateData()
+{
+    if(IntegrityCheck())
+    {
+        if(ShowAdvancedData)
+        {
+            MainRotor.Update();
+        }
+        if(DynamicRotorTensor)MainRotor.UpdateTensor();
+
+        if(UseAutoPause || UseCargoModule)Cargo.Update();
+        if(UseAutoPause)Cargo.CheckIfFilled();
+        return true;
+    }
+    else
+    {
+        Message.State=StateType.EMERGENCY;
+        ComponentsReady=false;
+        EmergencyStop();
         return false;
     }
 }
 
-public void set_configuration()
+public void EmergencyStop()
 {
-    Me.CustomData="@Configuration\n"+
-                    "You can configure the script right below here,\n"+
-                    "by changing the values between then | characters.\n\n"+
+    Message.AddReport(MainRotor.EmergencyStop()+DrillArm.EmergencyStop()+VerticalArm.EmergencyStop()+HorizontalArm.EmergencyStop());
+    PauseScript();
+}
 
-                    "The configuration will be loaded if you click Check Code\n"+
-                    "in the Code Editor inside the Programmable Block,\n"+
-                    "when the game Saves/Loads or if you use the\n"+
-                    "Set or the Refresh command.\n\n"+
+public void StartPlatform(bool auto=false)
+{
+    if(!ImRunning)
+    {
+        if(ComponentsReady)
+        {
+            if(Step.Progression<100)
+            {
+                if(auto)
+                {
+                    StartScript();
+                    StartMovingParts();
+                    Message.AddReport("[System]: Mining Started!");
 
-                    "There is a detailed explanation about what's what, inside the script.\n\n"+
+                }
+                else if(UpdateData())
+                {
+                    SetMovingParts();
+                    StartScript();
+                    StartMovingParts();
+                    Cargo.HighTarget=true;
+                    Message.AddReport("[System]: Mining Started!");
+                }
+                else Message.AddReport("[System]: Platform must be reset before Start!");
+            }
+            else Message.AddReport("[System]: Platform must be reset before Start!");
+        }
+        else Message.AddReport("[System]: Platform must be set before Start!");
+    }
+    else if(UseAutoPause && Cargo.AutoPauseEnabled)
+    {
+        Cargo.HighTarget=true;
+        Cargo.Update();
+        Cargo.CheckIfFilled();
+        if(!Cargo.AutoPauseEnabled)
+        {
+            StartMovingParts();
+            Message.AddReport("[System]: Mining Started!");
+        }
+        else Message.AddReport("[System]: Cargo is Filled!");
+    }
+    else Message.AddReport("[System]: Script is already running!");
+}
 
-                    "Main Tag: |"+main_tag+"|\n\n"+   //2 string
+public void PausePlatform()
+{
+    if(ImRunning)
+    {
+        PauseScript();
 
-                    "///////////////////////////////////////////\n"+
-                    "2.) Basic Configuration\n\n"+
+        PauseMovingParts();
 
-                    "- You can change these at any point:\n\n"+
+        Message.AddReport("[System]: Mining Paused!");
+    }
+    else 
+    {
+        PauseMovingParts();
+    }
+}
 
-                    "Use Auto Pause: |"+use_auto_pause+"|\n"+   //4 bool
-                    "High Cargo Threshold: |"+cargo_high_limit+"|\n"+   //6 float
-                    "Low Cargo Threshold: |"+cargo_low_limit+"|\n"+   //8  float
-                    "Show Advanced Data: |"+show_advanced_data+"|\n"+   //10 bool
-                    "Use LCD Color Coding: |"+use_lcd_color_coding+"|\n"+    //12 bool
-                    "Use Share Inertia Tensor: |"+share_inertia_tensor+"|\n"+   //14 bool
-                    "Use Dynamic Rotor Inertia Tensor: |"+use_dynamic_rotor_tensor+"|\n"+   //16 bool
-                    "Transmission Receiver Address: |"+receiver_address+"|\n\n"+  //18 long int
+public void Save_Data()
+{
+    _ini.Clear();
+    _ini.Set("Primary","Version",Version);
+    _ini.Set("Primary","ComponentsReady",ComponentsReady);
+    _ini.Set("Primary","ImRunning",ImRunning);
+    _ini.Set("Primary","PlatformIsMoving",PlatformIsMoving);
+    _ini.Set("Primary","TotalTime",TotalTime.Ticks);
+    _ini.Set("Primary","DigModeEnabled",DigModeEnabled);
+    
+    if(Step!=null)
+    {
+        _ini.Set("Primary","Step.Value",Step.Value);
+        _ini.Set("Secondary","Step.ExtendH",Step.ExtendH);
+    }
+    if(MainRotor!=null)
+    {
+        _ini.Set("Secondary","MainRotor.RotateToMax",MainRotor.RotateToMax);
+        _ini.Set("Secondary","MainRotor.PassedDebugZone",MainRotor.PassedDebugZone);
+    }
+    if(Cargo!=null)_ini.Set("Secondary","Cargo.HighTarget",Cargo.HighTarget);
 
-                    "- Don't change these while a mining is in progress:\n\n"+
+    Storage=_ini.ToString();
 
-                    "Max Rotor Angle: |"+max_rot_angle+"|\n"+ //20 float
-                    "Min Rotor Angle: |"+min_rot_angle+"|\n"+ //22 float
-                    "Non-Piston Blocks in Rotating Arm in Meters: |"+excess_meters+"|\n"+   //24 float
-                    "Vertical Piston Step Length: |"+vp_step_length+"|\n"+  //26 float
-                    "Use Unique Horizontal Step Length: |"+use_unique_hp_step_length+"|\n"+    //28 bool
-                    "Horizontal Piston Step Length: |"+hp_step_length+"|\n"+    //30 float
-                    "Retract Horizontal Piston before Vertical Step: |"+always_retract_hpistons+"|\n"+  //32 bool
-                    "///////////////////////////////////////////\n"+
-                    "4.) Advanced Configuration\n\n"+
+    Message.AddReport("[System]: Data Saved");
+}
 
-                    "- Don't change these while a mining is in progress:\n\n"+
+public void Load_Data(bool primary=true,bool first=true)
+{
+    if(first)
+    {
+        if(Storage=="" || !_ini.TryParse(Storage, out IniResult))Message.AddReport("[System]: Load Failed!");
+    }
+    
+    if(IniResult.IsDefined && IniResult.Success)
+    {
+        if(primary)
+        {
+            Message.AddReport("[System]: Loading Primary Data...");
 
-                    "Use Unique Piston Limits: |"+use_unique_piston_limits+"|\n"+   //34    bool
-                    "Max Vertical Piston Limit: |"+max_vp_limit+"|\n"+  //36    float
-                    "Min Vertical Piston Limit: |"+min_vp_limit+"|\n"+  //38    float
-                    "Max Vertical Inv Piston Limit: |"+max_vp_limit_inv+"|\n"+  //40    float
-                    "Min Vertical Inv Piston Limit: |"+min_vp_limit_inv+"|\n"+  //42    float
-                    "Max Horizontal Piston Limit: |"+max_hp_limit+"|\n"+  //44    float
-                    "Min Horizontal Piston Limit: |"+min_hp_limit+"|\n"+  //46    float
-                    "Vertical Piston Speed: |"+vp_vel+"|\n"+    //48    float
-                    "Horizontal Piston Speed: |"+hp_vel+"|\n"+    //50    float
-                    "Rotor Rotation Speed at 10m: |"+rotor_vel_at_10m+"|\n"+    //52    float
-                    "Piston Body Length in Meters: |"+piston_length+"|\n\n"+    //54    float
+            if(!_ini.Get("Primary","ComponentsReady").TryGetBoolean(out ComponentsReady))Message.AddReport("[Load Error]: ComponentsReady");
+            if(!_ini.Get("Primary","ImRunning").TryGetBoolean(out ImRunning))Message.AddReport("[Load Error]: ImRunning");
+            if(!_ini.Get("Primary","PlatformIsMoving").TryGetBoolean(out PlatformIsMoving))Message.AddReport("[Load Error]: PlatformIsMoving");
 
-                    "Horizontal Piston Tag: |"+hp_tag+"|\n"+  //56 string
-                    "Vertical Piston Tag: |"+vp_tag+"|\n"+  //58 string
-                    "Inverted Piston Tag: |"+inv_tag+"|\n"+  //60 string
-                    "Timer Advanced Tag: |"+adv_tag+"|";   //62 string
+            if(!_ini.Get("Primary","DigModeEnabled").TryGetBoolean(out DigModeEnabled))Message.AddReport("[Load Error]: DigModeEnabled");
 
-    Echo("Configuration Set to Custom Data!");
+            long ticks=0;
+            if(!_ini.Get("Primary","TotalTime").TryGetInt64(out ticks))Message.AddReport("[Load Error]: TotalTime");
+            else TotalTime = TimeSpan.FromTicks(ticks);
+            if(ComponentsReady)
+            {
+                if(!_ini.Get("Primary","Step.Value").TryGetInt32(out DebugNumber))Message.AddReport("[Load Error]: Step.Value");
+            }
+        }
+        else
+        {
+            Message.AddReport("[System]: Loading Secondary Data...");
+            if(Step.IsSet)
+            {
+                if(!_ini.Get("Secondary","Step.ExtendH").TryGetBoolean(out Step.ExtendH))Message.AddReport("[Load Error]: Step.ExtendH");
+            }
+            if(MainRotor.IsSet)
+            {
+                if(!_ini.Get("Secondary","MainRotor.RotateToMax").TryGetBoolean(out MainRotor.RotateToMax))Message.AddReport("[Load Error]: MainRotor.RotateToMax");
+                if(!_ini.Get("Secondary","MainRotor.PassedDebugZone").TryGetBoolean(out MainRotor.PassedDebugZone))Message.AddReport("MainRotor.PassedDebugZone");
+            }
+            if(Cargo.IsSet)
+            {
+                if(!_ini.Get("Secondary","Cargo.HighTarget").TryGetBoolean(out Cargo.HighTarget))Message.AddReport("[Load Error]: Cargo.HighTarget");
+            }
+        }
+    }
+}
+
+public void ResetConfig()
+{
+
+    MainTag="/Mine 01/";
+    MaxRotorAngle=360;
+    MinRotorAngle=0;
+
+//Quick Updateable ---
+    UseAutoPause=true;
+    HighCargoLimit=0.9f;
+    LowCargoLimit=0.5f;
+    UseCargoContainersOnly=true;
+    ShowAdvancedData=true;
+    LcdColorCoding=true;
+    DynamicRotorTensor=true;
+    AlwaysUpdateDetailedInfo=false;
+
+    TransmissionReceiverAddress=0;
+
+    HorizontalExtensionSpeed=0.5f;
+    VerticalExtensionSpeed=0.5f;
+    RotorSpeedAt10m=0.5f;
+
+    DigModeSpeed=3f;
+
+//Hard Updateable ---
+    SmartDetection=true; 
+    AlwaysRetractHorizontalPistons=false;
+    ShareInertiaTensor=true;
+
+    AdaptiveHorizontalExtension=true;
+    HpStepLength=3.33f;
+    VpStepLength=2.5f;
+
+    ManualDrillArmLength=0f;
+
+
+    MinHorizontalLimit=0;
+    MaxHorizontalLimit=0;
+
+    MinVerticalLimit=0;
+    MaxVerticalLimit=0;
+
+    VerTag="/Ver/";
+    HorTag="/Hor/";
+    InvTag="/Inv/";
+    StartTimerTag="/Start/";
+    PauseTimerTag="/Pause/";
+    FinishedTimerTag="/Finished/";
+
+    SetConfig();
+    Message.AddReport("[System]: Configuration Reset");
+}
+
+public void SetConfig()
+{
+    Me.CustomData=""
+    +"[Mining Platform Configuration]\n"
+    +"Version="+Version+"\n"
+    +";You can Configure the script by changing the values below.\n"
+
+    +"\n[Highlighted Options]\n"
+    +";They will apply when the Set command is used.\n\n"
+
+    +"MainTag="+MainTag+"\n"
+    +"MaxRotorAngle="+MaxRotorAngle+"\n"
+    +"MinRotorAngle="+MinRotorAngle+"\n"
+
+    +"\n[Quick Options]\n"
+    +";They will apply when the Refresh or Set command is used.\n\n"
+
+    +"TransmissionReceiverAddress="+TransmissionReceiverAddress+"\n"
+    +"UseAutoPause="+UseAutoPause+"\n"
+    +"HighCargoLimit="+HighCargoLimit+"\n"
+    +"LowCargoLimit="+LowCargoLimit+"\n\n"
+
+    +"ShowAdvancedData="+ShowAdvancedData+"\n"
+    +"UseCargoContainersOnly="+UseCargoContainersOnly+"\n"
+    +"LcdColorCoding="+LcdColorCoding+"\n"
+    +"DynamicRotorTensor="+DynamicRotorTensor+"\n"
+    +"AlwaysUpdateDetailedInfo="+AlwaysUpdateDetailedInfo+"\n\n"
+
+    +"RotorSpeedAt10m="+RotorSpeedAt10m+"\n"
+    +"HorizontalExtensionSpeed="+HorizontalExtensionSpeed+"\n"
+    +"VerticalExtensionSpeed="+VerticalExtensionSpeed+"\n\n"
+
+    +"DigModeSpeed="+DigModeSpeed+"\n"
+
+    +"\n[Advanced Options]\n"
+    +";They will apply when the Set command is used.\n\n"
+
+    +"SmartDetection="+SmartDetection+"\n"
+    +"AlwaysRetractHorizontalPistons="+AlwaysRetractHorizontalPistons+"\n"
+    +"ShareInertiaTensor="+ShareInertiaTensor+"\n\n"
+
+    +"MinHorizontalLimit="+MinHorizontalLimit+"\n"
+    +"MaxHorizontalLimit="+MaxHorizontalLimit+"\n\n"
+
+    +"MinVerticalLimit="+MinVerticalLimit+"\n"
+    +"MaxVerticalLimit="+MaxVerticalLimit+"\n\n"
+
+    +"VerTag="+VerTag+"\n"
+    +"HorTag="+HorTag+"\n"
+    +"InvTag="+InvTag+"\n"
+    +"StartTimerTag="+StartTimerTag+"\n"
+    +"PauseTimerTag="+PauseTimerTag+"\n"
+    +"FinishedTimerTag="+FinishedTimerTag+"\n"
+    +"\n---";
+}
+
+public bool GetConfig(bool optionalOnly=false)
+{
+    if(Me.CustomData!="" && _ini.TryParse(Me.CustomData, out IniResult))
+    {
+        if(!optionalOnly)
+        {
+            MainTag=_ini.Get("Highlighted Options","MainTag").ToString();
+            Message.MainTag=MainTag;
+
+            MaxRotorAngle=_ini.Get("Highlighted Options","MaxRotorAngle").ToSingle();
+            MinRotorAngle=_ini.Get("Highlighted Options","MinRotorAngle").ToSingle();
+
+            SmartDetection=_ini.Get("Advanced Options","SmartDetection").ToBoolean();
+            AlwaysRetractHorizontalPistons=_ini.Get("Advanced Options","AlwaysRetractHorizontalPistons").ToBoolean();
+            ShareInertiaTensor=_ini.Get("Advanced Options","ShareInertiaTensor").ToBoolean();
+
+            MinHorizontalLimit=_ini.Get("Advanced Options","MinHorizontalLimit").ToSingle();
+            MaxHorizontalLimit=_ini.Get("Advanced Options","MaxHorizontalLimit").ToSingle();
+
+            MinVerticalLimit=_ini.Get("Advanced Options","MinVerticalLimit").ToSingle();
+            MaxVerticalLimit=_ini.Get("Advanced Options","MaxVerticalLimit").ToSingle();
+
+            VerTag=_ini.Get("Advanced Options","VerTag").ToString();
+            HorTag=_ini.Get("Advanced Options","HorTag").ToString();
+            InvTag=_ini.Get("Advanced Options","InvTag").ToString();
+            StartTimerTag=_ini.Get("Advanced Options","StartTimerTag").ToString();
+            PauseTimerTag=_ini.Get("Advanced Options","PauseTimerTag").ToString();
+            FinishedTimerTag=_ini.Get("Advanced Options","FinishedTimerTag").ToString();
+        }
+        TransmissionReceiverAddress=_ini.Get("Quick Options","TransmissionReceiverAddress").ToInt64();
+
+        UseAutoPause=_ini.Get("Quick Options","UseAutoPause").ToBoolean();
+        HighCargoLimit=_ini.Get("Quick Options","HighCargoLimit").ToSingle();
+        LowCargoLimit=_ini.Get("Quick Options","LowCargoLimit").ToSingle();
+        UseCargoContainersOnly=_ini.Get("Quick Options","UseCargoContainersOnly").ToBoolean();
+
+        ShowAdvancedData=_ini.Get("Quick Options","ShowAdvancedData").ToBoolean();
+
+        LcdColorCoding=_ini.Get("Quick Options","LcdColorCoding").ToBoolean();
+        Message.LcdColoring=LcdColorCoding;
+
+        DynamicRotorTensor=_ini.Get("Quick Options","DynamicRotorTensor").ToBoolean();
+        AlwaysUpdateDetailedInfo=_ini.Get("Quick Options","AlwaysUpdateDetailedInfo").ToBoolean();
+
+        RotorSpeedAt10m=_ini.Get("Quick Options","RotorSpeedAt10m").ToSingle();
+        HorizontalExtensionSpeed=_ini.Get("Quick Options","HorizontalExtensionSpeed").ToSingle();
+        VerticalExtensionSpeed=_ini.Get("Quick Options","VerticalExtensionSpeed").ToSingle();
+        
+        DigModeSpeed=_ini.Get("Quick Options","DigModeSpeed").ToSingle();
+
+        if(!FirstLoad && !NewSet)
+        {
+            MainRotor.QuickInit(RotorSpeedAt10m,DigModeSpeed,HorizontalArm.EffectiveTargetDistance(),true);
+            HorizontalArm.QuickInit(HorizontalExtensionSpeed,DigModeSpeed,true);
+            VerticalArm.QuickInit(VerticalExtensionSpeed,DigModeSpeed,true);
+        }
+        else
+        {
+            MainRotor.QuickInit(RotorSpeedAt10m,DigModeSpeed);
+            HorizontalArm.QuickInit(HorizontalExtensionSpeed,DigModeSpeed);
+            VerticalArm.QuickInit(VerticalExtensionSpeed,DigModeSpeed);
+        }
+
+        Message.AddReport("[System]: Configuration loaded...");
+        return true;
+    }
+    else
+    {
+        Message.AddReport("[System]: Configuration failed!");
+        return false;
+    }
 }
