@@ -769,6 +769,7 @@ public class StepData
     public float CurrentTime;
     public int Hours;
     public int Minutes;
+    public bool DigMode;
 
     float HStepExtensionTime;
     float VStepExtensionTime;
@@ -806,6 +807,7 @@ public class StepData
 
         Hours=0;
         Minutes=0;
+        DigMode=false;
     }
     public void New(int val=0,double mH=0, double mV=0, bool _alwaysRetract=false, bool _first=true)
     {
@@ -817,6 +819,7 @@ public class StepData
         if(val>Max)Value=Max;
         else if(val<0)Value=0;
         else Value=val;
+
         UseExtendH=!_alwaysRetract;
         ExtendH=true;
         IsSet=true;
@@ -834,6 +837,7 @@ public class StepData
 
         Hours=0;
         Minutes=0;
+        DigMode=false;
     }
     public void DigModeChange(double mH, double mV)
     {
@@ -842,9 +846,12 @@ public class StepData
         if(mH>=0)MaxH=(int)mH;
         else MaxH=0;
         Max=2+MaxV*2+(MaxV+1)*MaxH*2;
-        Value=(int)Math.Round((Progression/100f)*Max);
+
+        Value=0;
         Analysis();
+        
         Progression=(int)Math.Round((Value*100f/Max));
+        DigMode=!DigMode;
     }
     public bool Update() //Inscreases the Step Value by one, and checks if the Max Value is reached.
     {
@@ -901,6 +908,30 @@ public class StepData
             Value=Max;
         }
         else Finished=false;
+    }
+    public void SetToVerticalStep(int _vStep)
+    {
+        if(_vStep!=V)
+        {
+            if(_vStep>V)
+            {
+                for(i=V;i<_vStep;i++)
+                {
+                    Value+=(MaxH*2)+2;
+                }
+            }
+            else
+            {
+                for(i=_vStep;i<V;i++)
+                {
+                    Value-=(MaxH*2)+2;
+                }
+            }
+        }
+        Value-=H*2;
+        if(Value%2==1)Value--;
+        Analysis();
+        Progression=(int)Math.Round((Value*100f/Max));
     }
     public void NewETA(float vStepTime, float hStepTime, float hLength, float hStepLength, float rRadius, float rSpeed)
     {
@@ -1328,6 +1359,28 @@ public class PistonArm
             Enabled=_on;
         }
     }
+    public int GetVStepFromDistance(float _distance, int _maxV)
+    {
+        if(_maxV!=0)
+        {
+            if(_distance>=MaxExtendableLength)return _maxV;
+            else if(_distance<=MinExtendableLength)return 0;
+            else
+            {
+                _distance-=MinExtendableLength;
+                return (int)Math.Floor(_distance/StepLength);
+            }
+        }
+        else return 0;
+    }
+    public int GetVStepFromDistance(int _maxV)
+    {
+        if(_maxV!=0)
+        {
+            return (int)Math.Floor(ArmTargetDistance/StepLength);
+        }
+        else return 0;
+    }
 };
 
 public class ScreenMessage
@@ -1486,6 +1539,7 @@ public class ArgumentDecoder
     public bool Passed;
     public ScriptMode Mode;
     public int Step;
+    public float Depth;
     public string Message;
 
     string[] data;
@@ -1498,6 +1552,7 @@ public class ArgumentDecoder
         CurrentString="";
         Step=0;
         Passed=false;
+        Depth=0;
     }
     public void New(string _arg)
     {
@@ -1506,6 +1561,7 @@ public class ArgumentDecoder
         Message="";
         data=_arg.Split(';');
         Passed=false;
+        Depth=0;
         DecodeData();
     }
     void DecodeData()
@@ -1518,8 +1574,15 @@ public class ArgumentDecoder
                 Mode=ScriptMode.SET;
                 if(data.Length>1)
                 {
-                    if(!Int32.TryParse(data[1], out Step))
+                    if(data[1].EndsWith("m"))
                     {
+                        data[1]=data[1].Remove(data[1].Length-1);
+                        if(!Single.TryParse(data[1], out Depth))Message+="\n[Error]: Depth Incorrect";
+                        else Passed=true;
+                    }
+                    else if(!Int32.TryParse(data[1], out Step))
+                    {
+                        
                         Message+="\n[Error]: Wrong Step Number!";
                         //Set to meter instead of step
                     }
@@ -1653,12 +1716,6 @@ public Program()
     if(!GetConfig())ResetConfig();
 
     Load_Data();
-    if(DigModeEnabled)//If game loads with Dig Mode Enabled, Pause the platform, just in case
-    {
-        Message.State=StateType.PAUSE;
-        EnableDigMode(false);
-        PausePlatform();
-    }
     if(ComponentsReady)SetSystem(DebugNumber);//If Components should be ready, refresh all data about them
     else //Get the Programmable Block's screen on very first run
     {
@@ -1672,6 +1729,11 @@ public Program()
     else if(ComponentsReady)
     {
         if(ImRunning)StartScript();
+        if(DigModeEnabled)//If game loads with Dig Mode Enabled, Pause the platform, just in case
+        {
+            Message.State=StateType.PAUSE;
+            PausePlatform();
+        }
     }
     Message.AutoRun=false;
     UpdateScreens();
@@ -1736,13 +1798,14 @@ public void Main(string argument, UpdateType updateSource)
         {
             if(ArgumentData.Mode==ScriptMode.SET || ArgumentData.Mode==ScriptMode.RESET)
             {
-                if(ArgumentData.Mode==ScriptMode.PAUSE)ResetConfig();
-                Message.State=StateType.SET;
-                GetConfig();
-
                 NewSet=true;
-                EnableDigMode(false);
+                if(ArgumentData.Mode==ScriptMode.RESET)ResetConfig();
+                Message.State=StateType.SET;
+
+                GetConfig();
+                
                 SetSystem(ArgumentData.Step);
+                EnableDigMode(false);
                 NewSet=false;
 
                 if(ComponentsReady)
@@ -1769,7 +1832,6 @@ public void Main(string argument, UpdateType updateSource)
             else if(ArgumentData.Mode==ScriptMode.PAUSE)
             {
                 Message.State=StateType.PAUSE;
-                EnableDigMode(false);
                 PausePlatform();
             }
             else if(ArgumentData.Mode==ScriptMode.DIG)
@@ -2087,45 +2149,59 @@ public void refresh_components(bool optionalOnly=false)
 
 public void EnableDigMode(bool _enable=true)
 {
-    if(DigModeEnabled!=_enable)
+    if(ComponentsReady)
     {
-        DigModeEnabled=_enable;
-        MainRotor.UseDigSpeed=_enable;
-        VerticalArm.UseDigSpeed=_enable;
-        HorizontalArm.UseDigSpeed=_enable;
-
-        if(_enable)
+        if(DigModeEnabled!=_enable)
         {
+            DigModeEnabled=_enable;
+            MainRotor.UseDigSpeed=_enable;
+            VerticalArm.UseDigSpeed=_enable;
+            HorizontalArm.UseDigSpeed=_enable;
 
-            Step.DigModeChange(
-                Math.Ceiling(HorizontalArm.ExtendableLength/HorizontalArm.DigStepLength),
-                Math.Ceiling(VerticalArm.ExtendableLength/VerticalArm.DigStepLength)
-            );
+            if(_enable)
+            {
+                if(!Step.DigMode)
+                {
+                    Step.DigModeChange(
+                        Math.Ceiling(HorizontalArm.ExtendableLength/HorizontalArm.DigStepLength),
+                        Math.Ceiling(VerticalArm.ExtendableLength/VerticalArm.DigStepLength)
+                    );
 
-            Step.NewETA(
-                VerticalArm.StepExtensionTime(),
-                HorizontalArm.StepExtensionTime(),
-                HorizontalArm.Length,
-                HorizontalArm.DigStepLength,
-                MainRotor.InnerRadius(),
-                MainRotor.DigSpeed);
-        }
-        else
-        {
-            Step.DigModeChange(
-                Math.Ceiling(HorizontalArm.ExtendableLength/HorizontalArm.StepLength),
-                Math.Ceiling(VerticalArm.ExtendableLength/VerticalArm.StepLength)
-            );
+                    Step.SetToVerticalStep(VerticalArm.GetVStepFromDistance(Step.MaxV));
 
-            Step.NewETA(
-                VerticalArm.StepExtensionTime(),
-                HorizontalArm.StepExtensionTime(),
-                HorizontalArm.Length,
-                HorizontalArm.StepLength,
-                MainRotor.InnerRadius(),
-                MainRotor.Speed);
+                    Step.NewETA(
+                        VerticalArm.StepExtensionTime(),
+                        HorizontalArm.StepExtensionTime(),
+                        HorizontalArm.Length,
+                        HorizontalArm.DigStepLength,
+                        MainRotor.InnerRadius(),
+                        MainRotor.DigSpeed);
+                }
+            }
+            else
+            {
+                if(Step.DigMode)
+                {
+                    Step.DigModeChange(
+                        Math.Ceiling(HorizontalArm.ExtendableLength/HorizontalArm.StepLength),
+                        Math.Ceiling(VerticalArm.ExtendableLength/VerticalArm.StepLength)
+                    );
+
+                    Step.SetToVerticalStep(VerticalArm.GetVStepFromDistance(Step.MaxV));
+
+                    Step.NewETA(
+                        VerticalArm.StepExtensionTime(),
+                        HorizontalArm.StepExtensionTime(),
+                        HorizontalArm.Length,
+                        HorizontalArm.StepLength,
+                        MainRotor.InnerRadius(),
+                        MainRotor.Speed);
+                }
+            }
+            SetMovingParts();
         }
     }
+    else Message.AddReport("[Warning]: Components Not Ready for Dig Mode!");
 }
 
 public void SetMovingParts()
@@ -2240,12 +2316,18 @@ public void SetSystem(int _step=0)
         if(AdaptiveHorizontalExtension)HorizontalArm.SetStepLength(DrillArm.Length,true);
         else HorizontalArm.SetStepLength(HpStepLength);
 
-        Step.New(_step,
-                    Math.Ceiling(HorizontalArm.ExtendableLength/HorizontalArm.StepLength),
-                    Math.Ceiling(VerticalArm.ExtendableLength/VerticalArm.StepLength),
-                    AlwaysRetractHorizontalPistons,
-                    NewSet
-                    );
+        Step.New(
+            _step,
+            Math.Ceiling(HorizontalArm.ExtendableLength/HorizontalArm.StepLength),
+            Math.Ceiling(VerticalArm.ExtendableLength/VerticalArm.StepLength),
+            AlwaysRetractHorizontalPistons,
+            NewSet
+        );
+
+        if(NewSet && ArgumentData.Depth!=0)
+        {
+            Step.SetToVerticalStep(VerticalArm.GetVStepFromDistance(ArgumentData.Depth,Step.MaxV));
+        }
 
         MainRotor.Init(MaxRotorAngle,MinRotorAngle);
 
@@ -2400,13 +2482,19 @@ public void PausePlatform()
     {
         PauseScript();
 
-        PauseMovingParts();
+        if(ComponentsReady)
+        {
+            PauseMovingParts();
+        }
 
         Message.AddReport("[System]: Mining Paused!");
     }
     else 
     {
-        PauseMovingParts();
+        if(ComponentsReady)
+        {
+            PauseMovingParts();
+        }
     }
 }
 
