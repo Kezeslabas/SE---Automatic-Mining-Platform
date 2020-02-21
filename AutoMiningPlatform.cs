@@ -1,3 +1,9 @@
+//Resolvable Issues
+// - Advanced Set: ExtendH changes each time
+// - When Dig Mode Paused by Program, Vertical Pistons are Retracting
+// - Sometimes the DigSpeed is not used by the Rotor after DigModeChange, until first step is done
+// - Step.DigMode possible inconsistencies 
+
 //Loadable Variables ---
 //Costumizable ---
 //Highlighted Stuff ---
@@ -423,12 +429,14 @@ public class RotorData
             if(CurrentAngleRad==MaxAngle)
             {
                 RotateToMax=true;
-                TargetSpeed=10*Speed/distance;
+                if(UseDigSpeed)TargetSpeed=10*DigSpeed/distance;
+                else TargetSpeed=10*Speed/distance;
             }
             else if(CurrentAngleRad==MinAngle)
             {
                 RotateToMax=false;
-                TargetSpeed=-10*Speed/distance;
+                if(UseDigSpeed)TargetSpeed=-10*DigSpeed/distance;
+                else TargetSpeed=-10*Speed/distance;
             }
             if(CurrentAngleRad<MaxAngle && CurrentAngleRad>MinAngle)
             {
@@ -436,12 +444,14 @@ public class RotorData
                 if(MaxAngle-CurrentAngleRad>=CurrentAngleRad-MinAngle)
                 {
                     RotateToMax=false;
-                    TargetSpeed=-10*Speed/distance;
+                    if(UseDigSpeed)TargetSpeed=-10*DigSpeed/distance;
+                    else TargetSpeed=-10*Speed/distance;
                 }
                 else 
                 {
                     RotateToMax=true;
-                    TargetSpeed=10*Speed/distance;
+                    if(UseDigSpeed)TargetSpeed=10*DigSpeed/distance;
+                    else TargetSpeed=10*Speed/distance;
                 }
             }
             else
@@ -454,13 +464,15 @@ public class RotorData
                     {
                         RotateToMax=false;
                         SetLimits(MinAngle);
-                        TargetSpeed=10*Speed/distance;
+                        if(UseDigSpeed)TargetSpeed=10*DigSpeed/distance;
+                        else TargetSpeed=10*Speed/distance;
                     }
                     else
                     {
                         RotateToMax=true;
                         SetLimits(MaxAngle);
-                        TargetSpeed=-10*Speed/distance;
+                        if(UseDigSpeed)TargetSpeed=-10*DigSpeed/distance;
+                        else TargetSpeed=-10*Speed/distance;
                     }
                 }
                 else
@@ -470,13 +482,15 @@ public class RotorData
                     {
                         RotateToMax=true;
                         SetLimits(MaxAngle);
-                        TargetSpeed=-10*Speed/distance;
+                        if(UseDigSpeed)TargetSpeed=-10*DigSpeed/distance;
+                        else TargetSpeed=-10*Speed/distance;
                     }
                     else
                     {
                         RotateToMax=false;
                         SetLimits(MinAngle);
-                        TargetSpeed=10*Speed/distance;
+                        if(UseDigSpeed)TargetSpeed=10*DigSpeed/distance;
+                        else TargetSpeed=10*Speed/distance;
                     }
                 }
             }
@@ -848,12 +862,13 @@ public class StepData
         Max=2+MaxV*2+(MaxV+1)*MaxH*2;
 
         Value=0;
+        First=true;
         Analysis();
         
         Progression=(int)Math.Round((Value*100f/Max));
         DigMode=!DigMode;
     }
-    public bool Update() //Inscreases the Step Value by one, and checks if the Max Value is reached.
+    public bool Update() //Increases the Step Value by one, and checks if the Max Value is reached.
     {
         Value++;
         Progression=(int)Math.Round((Value*100f/Max));
@@ -1368,7 +1383,8 @@ public class PistonArm
             else
             {
                 _distance-=MinExtendableLength;
-                return (int)Math.Floor(_distance/StepLength);
+                if(UseDigSpeed) return (int)Math.Floor(_distance/DigStepLength);
+                else return (int)Math.Floor(_distance/StepLength);
             }
         }
         else return 0;
@@ -1377,7 +1393,8 @@ public class PistonArm
     {
         if(_maxV!=0)
         {
-            return (int)Math.Floor(ArmTargetDistance/StepLength);
+            if(UseDigSpeed)return (int)Math.Floor(ArmTargetDistance/DigStepLength);
+            else return (int)Math.Floor(ArmTargetDistance/StepLength);
         }
         else return 0;
     }
@@ -1855,7 +1872,7 @@ public void Main(string argument, UpdateType updateSource)
         if(ComponentsReady)Save_Data();
     }
     UpdateScreens();
-    Echo("LRT: "+Runtime.LastRunTimeMs);
+    //Echo("LRT: "+Runtime.LastRunTimeMs);
 }
 
 //End of Main
@@ -1880,8 +1897,10 @@ public void UpdateScreens()
 public string ConstructBasicData()
 {
     Result="";
-
-    Result+="Step: "+Step.Value+"/"+Step.Max+" |"+MainTag+"| ETA: "+Step.Hours+":"+Step.Minutes.ToString("D2")+"\n";
+    
+    Result+="Step: "+Step.Value+"/"+Step.Max+" | "
+    +VerticalArm.ArmTargetDistance+"/"+VerticalArm.MaxExtendableLength+"m | ETA: "
+    +Step.Hours+":"+Step.Minutes.ToString("D2")+"\n";
 
     int i;
     Result+="Progress: [";
@@ -1895,6 +1914,7 @@ public string ConstructBasicData()
         i++;
     }
     Result+="] "+Step.Progression+"%\n";
+    Result+="[ "+MainTag+" ]\n";
 
     if(Cargo.ShowOnScreen)Result+=Cargo.ConstructMsg();
     if(ShowAdvancedData)Result+=GatherAdvancedData();
@@ -2157,8 +2177,9 @@ public void EnableDigMode(bool _enable=true)
             MainRotor.UseDigSpeed=_enable;
             VerticalArm.UseDigSpeed=_enable;
             HorizontalArm.UseDigSpeed=_enable;
+            DrillArm.Enable(!_enable);
 
-            if(_enable)
+            if(DigModeEnabled)
             {
                 if(!Step.DigMode)
                 {
@@ -2235,11 +2256,11 @@ public void SetMovingParts()
     }
     else
     {
-        if(NewSet)
+        if(Step.First)
         {
             VerticalArm.SetToTarget(Step.V);
             HorizontalArm.SetToTarget(Step.H,Step.ExtendH);
-            MainRotor.SetToTarget(HorizontalArm.EffectiveTargetDistance(),NewSet);
+            MainRotor.SetToTarget(HorizontalArm.EffectiveTargetDistance(),Step.First);
         }
         else
         {
@@ -2547,9 +2568,11 @@ public void Load_Data(bool primary=true,bool first=true)
             long ticks=0;
             if(!_ini.Get("Primary","TotalTime").TryGetInt64(out ticks))Message.AddReport("[Load Error]: TotalTime");
             else TotalTime = TimeSpan.FromTicks(ticks);
+
             if(ComponentsReady)
             {
                 if(!_ini.Get("Primary","Step.Value").TryGetInt32(out DebugNumber))Message.AddReport("[Load Error]: Step.Value");
+                if(DigModeEnabled)EnableDigMode();
             }
         }
         else
