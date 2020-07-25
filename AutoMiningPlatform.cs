@@ -1,8 +1,32 @@
+//Features
+// Mining Sequence: Working
+//  - The script manages the Pistons, Drills and a Rotor to mine.
+// Adaptive Extension: Working
+//  - The script calcualtes the optimal extension length for vertical pistons based on the length of the drilling head
+// Legacy Detection: Working
+//  - The script detects it's components by a main tag, and secondaray tags, like "/Ver/","/Hor/","/Inv/",/Adv/"
+// (New) Adaptive Speed: Working
+//  - The script detects the length of the piston arm, and adapts the rotation speed to optimze effectiveness.
+// (New) Advanced Set: Working
+//  - After the "set;" command and argument can be passed. A regular even number sets the script to a step, 
+//    a number with the "m" like "30m" sets the script to the closest step to that mining distance.
+// (New) Smart Detection: Working
+//  - The script detects it's components by a main tag, and detects the direction of pistons too.
+//    The "/Inv/" tag is still required, but only once.
+// (New) Dig Mode: WIP
+//  - An alternate mode, where the script expects the player to be in a cockpit and use the drills secondary mining mode.
+//    The script speeds up the extensions and rotation speed dinamically to finish the digging as soon as possible.
+//  - You can only activate it from a cockpit
+//  - Command: dig
+
+
 //Resolvable Issues
 // - Advanced Set: ExtendH changes each time
 // - When Dig Mode Paused by Program, Vertical Pistons are Retracting
 // - Sometimes the DigSpeed is not used by the Rotor after DigModeChange, until first step is done
 // - Step.DigMode possible inconsistencies 
+// - When using Horizontal Drills Something calculates wrongly
+// - Test report: drills on the ground, script still running, after pause can't reset (didn't redraw drills?)
 
 //Loadable Variables ---
 //Costumizable ---
