@@ -1,4 +1,5 @@
 // Automatic Mining Platform 2 By Kezeslabas
+String versionTag = "DEVELOPMENT";
 String version = "0.1.0";
 
 public void Program()
