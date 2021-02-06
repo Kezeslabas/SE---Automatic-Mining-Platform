@@ -1,0 +1,10 @@
+// Shortcuts
+//'Alt+Enter' // Triggers `Todo: Toggle Box`
+//'Alt+D' // Triggers `Todo: Toggle Done`
+//'Alt+C' // Triggers `Todo: Toggle Cancelled`
+//'Alt+S' // Triggers `Todo: Toggle Start`
+
+Getting Started:
+    ☐ Implement Config Get and Set
+    ☐ Implement Saving and Loading
+
