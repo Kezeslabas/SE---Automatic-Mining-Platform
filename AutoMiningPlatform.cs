@@ -20,6 +20,14 @@ public enum StateType{
     DIGGING,
     INIT
 }
+
+public enum StepType{
+    HORIZONTAL,
+    VERTICAL,
+    ROTATION,
+    START,
+    FINISH
+}
 //Enums ---/
 
 //Interfaces ---
@@ -28,6 +36,143 @@ public enum StateType{
 
 
 //Classes ---
+
+// Controllers ---
+public class StepController{
+    // StepType stepType = StepType.START;
+
+    // int StepNumber = 0;
+
+    public void SetNew(){
+
+    }
+}
+
+public class PlatformController{
+    //Injection
+    private readonly ScriptConfig config;
+
+    //SubControllers
+    public RotationController Rotor = new RotationController();
+    public PistonController HorizontalPistons = new PistonController();
+    public PistonController VerticalPistons = new PistonController();
+    public DrillController Drills = new DrillController();
+
+    //Local vars
+    IMyTerminalBlock lTerminalBlock;
+
+    public PlatformController(ScriptConfig config){
+        this.config = config;
+    }
+
+    public void getBlocksFrom(List<IMyTerminalBlock> blocks){
+        HorizontalPistons.Clear();
+        VerticalPistons.Clear();
+        Rotor.Clear();
+        Drills.Clear();
+
+        for(int i=0;i<blocks.Count;i++){
+            lTerminalBlock = blocks[i];
+
+            if(lTerminalBlock is IMyPistonBase){
+                if(lTerminalBlock.CustomName.Contains(config.VerTag)){
+                    if(lTerminalBlock.CustomName.Contains(config.InvTag)){
+                        VerticalPistons.AddPiston(new PistonBlock(lTerminalBlock as IMyPistonBase));
+                    }
+                    else{
+                        VerticalPistons.AddPiston(new PistonBlock(lTerminalBlock  as IMyPistonBase));
+                    }
+                }
+                else if(lTerminalBlock.CustomName.Contains(config.HorTag)){
+                    if(lTerminalBlock.CustomName.Contains(config.InvTag)){
+                        HorizontalPistons.AddPiston(new PistonBlock(lTerminalBlock  as IMyPistonBase));
+                    }
+                    else{
+                        HorizontalPistons.AddPiston(new PistonBlock(lTerminalBlock  as IMyPistonBase));
+                    }
+                }
+                else if(config.SmartDetection){
+                    //TODO: Smart Detection
+                }
+                else {
+                    //TODO: Piston Without Right Tag Message
+                }
+            }
+            else if(lTerminalBlock is IMyShipDrill){
+                Drills.AddDrill(lTerminalBlock as IMyShipDrill);
+            }
+            else if(lTerminalBlock is IMyMotorAdvancedStator){
+                if(!Rotor.SetRotor(lTerminalBlock as IMyMotorStator)){
+                    //TODO: Too Many Rotors Error
+                }
+            }
+        }
+    }
+}
+
+public class RotationController{
+    public bool IsSet = false;
+    IMyMotorStator Rotor;
+
+    public bool SetRotor(IMyMotorStator block){
+        if(IsSet)return false;
+        Rotor = block;
+        IsSet = true;
+
+        return IsSet;
+    }
+
+    public void Clear(){
+        IsSet = false;
+        Rotor = null;
+    }
+}
+
+public class PistonController{
+    List<PistonBlock> pistons = new List<PistonBlock>();
+
+    public void AddPiston(PistonBlock pb){
+        pistons.Add(pb);
+    }
+
+    public int getCount(){
+        return pistons.Count;
+    }
+
+    public void Clear(){
+        pistons.Clear();
+    }
+}
+
+public class DrillController{
+    List<IMyShipDrill> Drills = new List<IMyShipDrill>();
+
+    public void AddDrill(IMyShipDrill block){
+        Drills.Add(block);
+    }
+
+    public void Clear(){
+        Drills.Clear();
+    }
+
+    public int getCount(){
+        return Drills.Count;
+    }
+}
+
+// Blocks
+public class PistonBlock{
+    public IMyPistonBase Block;
+    public bool Inverted;
+    public float TargetDistance;
+
+    public PistonBlock(IMyPistonBase pis, bool inv=false){
+        Block=pis;
+        Inverted=inv;
+        if(inv)TargetDistance=Block.HighestPosition;
+        else TargetDistance=Block.LowestPosition;
+    }
+}
 
 // Config
 public class ScriptConfig{
@@ -156,23 +301,13 @@ public class StateProvider {
     }
 }
 
-public class Message{
-    public string Tag;
-    public string Content;
-
-    public string getMessage(){
-        return "["+ Tag +"] "+Content;
-    }
-}
-
 public class MessageScreen{
     private string IndexText;
     private bool index = true;
     private readonly StateProvider stateProvider;
+    private string StandardMessages = "";
+    private string LastMessages = "";
 
-
-    List<Message> StandardMessages = new List<Message>();
-    List<Message> AdvancedMessages = new List<Message>();
 
     public MessageScreen(StateProvider sp){
         stateProvider = sp;
@@ -181,31 +316,27 @@ public class MessageScreen{
     public string buildMessage(){
         string result = buildIndex();
 
-        for(int i=0;i<StandardMessages.Count;i++){
-            result += StandardMessages[i].getMessage();
-        }
+        result += StandardMessages;
 
-        for(int i=0;i<AdvancedMessages.Count;i++){
-            result += AdvancedMessages[i].getMessage();
-        }
+        LastMessages = StandardMessages;
+        StandardMessages = "";
+
         return result;
     }
 
     public string buildIndex(){
         if(index)IndexText = "[/-/-/-] ";
-        else IndexText = "[/-/-/-] ";
+        else IndexText = "[-/-/-/] ";
         index = !index;
 
         IndexText += stateProvider.state.ToString() + "...\n";
         return IndexText;
     }
 
-    public void AddStandardMessage(Message msg){
-        StandardMessages.Add(msg);
+    public void AddMessage(string tag, string content){
+        StandardMessages += "["+tag+"] "+content+"\n";
     }
-    public void AddAdvancedMessages(Message msg){
-        AdvancedMessages.Add(msg);
-    }
+
 }
 
 //Classes ---/
@@ -214,7 +345,7 @@ public class MessageScreen{
 //Init ---
 
 // Config And Saving
-ScriptConfig config = new ScriptConfig(version,versionTag);
+static ScriptConfig config = new ScriptConfig(version,versionTag);
 MyIni gIni = new MyIni();
 MyIniParseResult gIniResult;
 
@@ -222,7 +353,12 @@ MyIniParseResult gIniResult;
 static StateProvider mainState = new StateProvider(StateType.INIT);
 
 MessageScreen messageScreen = new MessageScreen(mainState);
-Message gMessage = new Message();
+
+// Blocks
+List<IMyTerminalBlock> gTerminalBlocks = new List<IMyTerminalBlock>();
+
+// Controllers
+PlatformController mainController = new PlatformController(config);
 
 //Init ---/
 ////////////////////////////////////////////////////////////
@@ -251,14 +387,20 @@ public void Main(string argument, UpdateType updateSource)
         
     }
     SetConfig();
+    GatherBlocks();
+    RefreshHardBlocks();
 
-    AddMessage("Test","Data");
+    messageScreen.AddMessage("Hor",""+mainController.HorizontalPistons.getCount());
+    messageScreen.AddMessage("Ver",""+mainController.VerticalPistons.getCount());
+    messageScreen.AddMessage("Rotor",""+mainController.Rotor.IsSet);
+    messageScreen.AddMessage("Drill",""+mainController.Drills.getCount());
 
     UpdateScreens();
 }
 //Main ---/
 ////////////////////////////////////////////////////////////
 
+//Messages and Screens ---
 public void UpdateScreens(){
     if(config.getShowAdvancedData())GatherAdvancedData();
 
@@ -266,18 +408,23 @@ public void UpdateScreens(){
     Echo(msg);
 }
 
-//Messages and Screens
-public void AddMessage(string tag, string content){
-    gMessage.Tag = tag;
-    gMessage.Content = content;
-
-    messageScreen.AddStandardMessage(gMessage);
-}
-
 public void GatherAdvancedData(){
 
 }
+//Messages and Screens ---/
 
+// Blocks ---
+
+public void RefreshHardBlocks(){
+    mainController.getBlocksFrom(gTerminalBlocks);
+}
+
+public void GatherBlocks(){
+    gTerminalBlocks.Clear();
+    GridTerminalSystem.SearchBlocksOfName(config.MainTag,gTerminalBlocks);
+}
+
+// Blocks ---/
 
 //Config And Saving ---
 

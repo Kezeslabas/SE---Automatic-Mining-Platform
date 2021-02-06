@@ -1,7 +1,6 @@
 # Notes for Development
 
-## Screen Messages
-
+## Screen and Messages
 - Messages
     - Each Massage Has
         - Tag: /n + String
@@ -19,3 +18,16 @@
             - StatusBar
     - Messages
     - Advanced Status
+
+## Mining Platform
+- Rotation Provider
+    - Rotor
+- Rotating Arm
+    - Vertical Pistons
+    - Horizontal Pistons
+    - Drills
+
+## Soft Blocks
+- LCDs
+- Cargo Containers
+- Timers
