@@ -50,7 +50,8 @@ public class StepController{
 
 public class PlatformController{
     //Injection
-    private readonly ScriptConfig config;
+    private ScriptConfig config;
+    private MessageScreen screen;
 
     //SubControllers
     public RotationController Rotor = new RotationController();
@@ -61,16 +62,34 @@ public class PlatformController{
     //Local vars
     IMyTerminalBlock lTerminalBlock;
 
-    public PlatformController(ScriptConfig config){
+    public PlatformController(ScriptConfig config, MessageScreen screen){
         this.config = config;
+        this.screen = screen;
     }
 
-    public void getBlocksFrom(List<IMyTerminalBlock> blocks){
+    public bool getBlocksFrom(List<IMyTerminalBlock> blocks){
         HorizontalPistons.Clear();
         VerticalPistons.Clear();
         Rotor.Clear();
         Drills.Clear();
 
+        //Get Rotor
+        for(int i=0;i<blocks.Count;i++){
+            lTerminalBlock = blocks[i];
+            if(lTerminalBlock is IMyMotorAdvancedStator){
+                if(!Rotor.SetRotor(lTerminalBlock as IMyMotorStator)){
+                    screen.AddMessage("Error"," Additional Rotor Found\n"+lTerminalBlock.CustomName+"\n");
+                }                
+            }
+        }
+
+        if(!Rotor.IsSet){
+            screen.AddMessage("Error"," Rotor not found!");
+            return false;
+        }
+
+        double vectorDot = 0;
+        IMyPistonBase piston;
         for(int i=0;i<blocks.Count;i++){
             lTerminalBlock = blocks[i];
 
@@ -92,32 +111,58 @@ public class PlatformController{
                     }
                 }
                 else if(config.SmartDetection){
-                    //TODO: Smart Detection
+                    piston = lTerminalBlock as IMyPistonBase;
+                    vectorDot = Vector3D.Dot(Rotor.Vertical,piston.Position - piston.Top.Position);
+                    if(vectorDot>0.9f || vectorDot<-0.9f){
+                        //Vetical
+                        VerticalPistons.AddPiston(new PistonBlock(piston));
+                    }
+                    else if(vectorDot<0.1f && vectorDot>-0.1f){
+                        //Horizontal
+                        HorizontalPistons.AddPiston(new PistonBlock(piston));
+                    }
+                    else {
+                        //Warning
+                        screen.AddMessage("Warning"," Piston direction can't be calculated!\n"+lTerminalBlock.CustomName+"\n");
+                    }
+
                 }
                 else {
-                    //TODO: Piston Without Right Tag Message
+                    screen.AddMessage("Warning"," No Subtag Found\n"+lTerminalBlock.CustomName+"\n");
                 }
             }
             else if(lTerminalBlock is IMyShipDrill){
                 Drills.AddDrill(lTerminalBlock as IMyShipDrill);
             }
-            else if(lTerminalBlock is IMyMotorAdvancedStator){
-                if(!Rotor.SetRotor(lTerminalBlock as IMyMotorStator)){
-                    //TODO: Too Many Rotors Error
-                }
-            }
         }
+
+        if(!HorizontalPistons.CheckDirections(config.InvTag)){
+            screen.Message("Error"," Inverted Hor Piston Tag Error!");
+            return false;
+        }
+        if(!VerticalPistons.CheckDirections()){
+            screen.Message("Error"," Inverted Ver Piston Tag Error!");
+            return false;
+        }
+
+        return true;
     }
 }
 
 public class RotationController{
     public bool IsSet = false;
+    public Vector3D Vertical;
+    
     IMyMotorStator Rotor;
+
 
     public bool SetRotor(IMyMotorStator block){
         if(IsSet)return false;
         Rotor = block;
         IsSet = true;
+
+        Vertical = Rotor.Position - Rotor.Top.Position;
+        Vertical.Normalize;
 
         return IsSet;
     }
@@ -142,6 +187,47 @@ public class PistonController{
     public void Clear(){
         pistons.Clear();
     }
+
+    public bool CheckDirections(String invTag, bool smart){
+        if(pistons.Count == 0)return false;
+
+        bool foundFirst = false;
+        Vector3D InvDirection;
+        double vectorDot = 0;
+        //InvTag Search, and init if not SmartDetection
+        for(int i=0;i<pistons.Count;i++){
+            if(pistons[i].CheckInverted(invTag)){
+                if(!foundFirst){
+                    foundFirst = true;
+                    InvDirection = pistons[i].Direction;
+                }
+                else{
+                    vectorDot = Vector3D.Dot(InvDirection,pistons[i].Direction);
+                    //If not paralell to InvDirection, then throw error
+                    if(vectorDot<0.9f){
+                        return false;
+                    }
+                }
+                if(smart)break;
+            }
+        }
+
+        if(foundFirst && smart){
+            for(int i=0;i<pistons.Count;i++){
+                if(pistons[i].CheckInverted(invTag)){
+                    vectorDot = Vector3D.Dot(InvDirection,pistons[i].Direction);
+                    if(vectorDot>0.9f){
+                        pistons[i].Inverted = true;
+                    }
+                    else if(vectorDot<0.1f && vectorDot>-0.1f){
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
 }
 
 public class DrillController{
@@ -165,12 +251,22 @@ public class PistonBlock{
     public IMyPistonBase Block;
     public bool Inverted;
     public float TargetDistance;
+    private Vector3D Direction { get; }
 
     public PistonBlock(IMyPistonBase pis, bool inv=false){
         Block=pis;
         Inverted=inv;
         if(inv)TargetDistance=Block.HighestPosition;
         else TargetDistance=Block.LowestPosition;
+
+        Direction = Block.Position - Block.Top.Position;
+        Direction.Normalize();
+    }
+
+    public bool CheckInverted(String tag){
+        if(Block.CustomName.Contains(tag))Inverted = true;
+
+        return Inverted;
     }
 }
 
@@ -352,13 +448,13 @@ MyIniParseResult gIniResult;
 // ScreenMessaging
 static StateProvider mainState = new StateProvider(StateType.INIT);
 
-MessageScreen messageScreen = new MessageScreen(mainState);
+static MessageScreen messageScreen = new MessageScreen(mainState);
 
 // Blocks
 List<IMyTerminalBlock> gTerminalBlocks = new List<IMyTerminalBlock>();
 
 // Controllers
-PlatformController mainController = new PlatformController(config);
+PlatformController mainController = new PlatformController(config,messageScreen);
 
 //Init ---/
 ////////////////////////////////////////////////////////////
