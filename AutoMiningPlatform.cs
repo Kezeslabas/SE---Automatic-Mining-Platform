@@ -37,7 +37,7 @@ public enum StepType{
 
 //Classes ---
 
-// Controllers ---
+// Controllers
 public class StepController{
     // StepType stepType = StepType.START;
 
@@ -90,10 +90,14 @@ public class PlatformController{
 
         double vectorDot = 0;
         IMyPistonBase piston;
+        Vector3D checkVector;
+        // screen.AddMessage("Debug","Rotor:\n"+Rotor.Vertical.ToString());
+        //Get Pistons and Drills
         for(int i=0;i<blocks.Count;i++){
             lTerminalBlock = blocks[i];
 
             if(lTerminalBlock is IMyPistonBase){
+                //First Check for Tags
                 if(lTerminalBlock.CustomName.Contains(config.VerTag)){
                     if(lTerminalBlock.CustomName.Contains(config.InvTag)){
                         VerticalPistons.AddPiston(new PistonBlock(lTerminalBlock as IMyPistonBase));
@@ -110,9 +114,13 @@ public class PlatformController{
                         HorizontalPistons.AddPiston(new PistonBlock(lTerminalBlock  as IMyPistonBase));
                     }
                 }
+                //Then Smart Detection
                 else if(config.SmartDetection){
                     piston = lTerminalBlock as IMyPistonBase;
-                    vectorDot = Vector3D.Dot(Rotor.Vertical,piston.Position - piston.Top.Position);
+                    checkVector = piston.GetPosition() - piston.Top.GetPosition();
+                    checkVector.Normalize();
+                    vectorDot = Vector3D.Dot(Rotor.Vertical, checkVector);
+                    // screen.AddMessage("Debug"," "+piston.CustomName+"\n"+checkVector.ToString()+"\nDot: "+vectorDot);
                     if(vectorDot>0.9f || vectorDot<-0.9f){
                         //Vetical
                         VerticalPistons.AddPiston(new PistonBlock(piston));
@@ -135,15 +143,27 @@ public class PlatformController{
                 Drills.AddDrill(lTerminalBlock as IMyShipDrill);
             }
         }
+        string msg;
 
-        if(!HorizontalPistons.CheckDirections(config.InvTag)){
-            screen.Message("Error"," Inverted Hor Piston Tag Error!");
+        msg = HorizontalPistons.CheckDirections(config.InvTag,config.SmartDetection);
+
+        if(msg!=""){
+            screen.AddMessage("Error","Hor: "+msg);
             return false;
         }
-        if(!VerticalPistons.CheckDirections()){
-            screen.Message("Error"," Inverted Ver Piston Tag Error!");
+
+        msg = VerticalPistons.CheckDirections(config.InvTag,config.SmartDetection);
+
+        if(msg!=""){
+            screen.AddMessage("Error","Ver: "+msg);
             return false;
         }
+
+        //DEBUG
+        // screen.AddMessage("Vertical","\n"+VerticalPistons.getReport());
+        // screen.AddMessage("Horizontal","\n"+HorizontalPistons.getReport());
+
+        //SetValueIfCorrectStructureFound
 
         return true;
     }
@@ -161,8 +181,8 @@ public class RotationController{
         Rotor = block;
         IsSet = true;
 
-        Vertical = Rotor.Position - Rotor.Top.Position;
-        Vertical.Normalize;
+        Vertical = Rotor.GetPosition() - Rotor.Top.GetPosition();
+        Vertical.Normalize();
 
         return IsSet;
     }
@@ -188,45 +208,43 @@ public class PistonController{
         pistons.Clear();
     }
 
-    public bool CheckDirections(String invTag, bool smart){
-        if(pistons.Count == 0)return false;
+    public string CheckDirections(String invTag, bool smart){
+        if(pistons.Count == 0)return "";
 
         bool foundFirst = false;
-        Vector3D InvDirection;
-        double vectorDot = 0;
+        Vector3D baseVector = Vector3D.Zero;
         //InvTag Search, and init if not SmartDetection
         for(int i=0;i<pistons.Count;i++){
-            if(pistons[i].CheckInverted(invTag)){
+            if(pistons[i].CheckInvertedTag(invTag)){
                 if(!foundFirst){
                     foundFirst = true;
-                    InvDirection = pistons[i].Direction;
+                    baseVector = pistons[i].Direction;
                 }
-                else{
-                    vectorDot = Vector3D.Dot(InvDirection,pistons[i].Direction);
-                    //If not paralell to InvDirection, then throw error
-                    if(vectorDot<0.9f){
-                        return false;
-                    }
-                }
-                if(smart)break;
             }
         }
-
-        if(foundFirst && smart){
+        if(smart){
+            //Check Inverted Tag Consistency and Set Pistons
+            string result = "";
+            if(foundFirst)baseVector = baseVector*-1;
+            else baseVector = pistons[0].Direction;
             for(int i=0;i<pistons.Count;i++){
-                if(pistons[i].CheckInverted(invTag)){
-                    vectorDot = Vector3D.Dot(InvDirection,pistons[i].Direction);
-                    if(vectorDot>0.9f){
-                        pistons[i].Inverted = true;
-                    }
-                    else if(vectorDot<0.1f && vectorDot>-0.1f){
-                        return false;
-                    }
-                }
+                result += pistons[i].CheckInOrderDirection(baseVector,foundFirst);
             }
+            return result;
         }
 
-        return true;
+        return "";
+    }
+
+    public string getReport(){
+        string result = "";
+
+        for(int i=0;i<pistons.Count;i++){
+            result += pistons[i].getReport();
+        }
+
+        result += "\n";
+        return result;
     }
 }
 
@@ -251,7 +269,7 @@ public class PistonBlock{
     public IMyPistonBase Block;
     public bool Inverted;
     public float TargetDistance;
-    private Vector3D Direction { get; }
+    public Vector3D Direction;
 
     public PistonBlock(IMyPistonBase pis, bool inv=false){
         Block=pis;
@@ -259,14 +277,33 @@ public class PistonBlock{
         if(inv)TargetDistance=Block.HighestPosition;
         else TargetDistance=Block.LowestPosition;
 
-        Direction = Block.Position - Block.Top.Position;
+        Direction = pis.GetPosition() - pis.Top.GetPosition();
         Direction.Normalize();
     }
 
-    public bool CheckInverted(String tag){
+    public bool CheckInvertedTag(String tag){
         if(Block.CustomName.Contains(tag))Inverted = true;
 
         return Inverted;
+    }
+
+    public string CheckInOrderDirection(Vector3D inOrderVector, bool foundInverted){
+        double vectorDot = Vector3D.Dot(inOrderVector,Direction);
+        if(vectorDot>0.9f){
+            if(Inverted)return "Inconsistent Inv Tag\n"+this.getReport();
+        }
+        else if(vectorDot<0.1f && vectorDot>-0.1f){
+            return "Piston Out of Order\n"+this.getReport();
+        }
+        else if(vectorDot<-0.9f){
+            if(foundInverted)Inverted = true;
+            else return "Missing Inv Tag\n"+this.getReport();
+        }
+        return "";
+    }
+
+    public string getReport(){
+        return ""+Block.CustomName+" | "+ (Inverted ? "Inverted" : "In Order") + "\n";
     }
 }
 
