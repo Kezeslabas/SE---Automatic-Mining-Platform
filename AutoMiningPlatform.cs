@@ -1,10 +1,13 @@
 // Automatic Mining Platform 2 By Kezeslabas
-static string versionTag = "DEVELOPMENT";
-static string version = "0.1.0";
+string versionTag = "DEVELOPMENT";
+string version = "0.1.0";
 
 
 ////////////////////////////////////////////////////////////
-//Enums ---
+//State ---
+/**
+* The different States of The script
+*/
 public enum StateType{
     SET,
     START,
@@ -21,6 +24,18 @@ public enum StateType{
     INIT
 }
 
+public struct StateData
+{
+    public string Text;
+    public Color Col;
+    public StateData(string Text,Color Col)
+    {
+        this.Text = Text;
+        this.Col = Col;
+    }
+}
+// ---
+
 public enum StepType{
     HORIZONTAL,
     VERTICAL,
@@ -28,16 +43,9 @@ public enum StepType{
     START,
     FINISH
 }
-//Enums ---/
 
-//Interfaces ---
-
-//Interfaces ---/
-
-
-//Classes ---
-
-// Hard Controllers
+////////////////////////////////////////////////////////////
+//Hard Controllers ---
 public class StepController{
     // StepType stepType = StepType.START;
 
@@ -266,8 +274,52 @@ public class DrillController{
         return Drills.Count;
     }
 }
+// Block
+public class PistonBlock{
+    public IMyPistonBase Block;
+    public bool Inverted;
+    public float TargetDistance;
+    public Vector3D Direction;
 
-// Soft Controllers
+    public PistonBlock(IMyPistonBase pis, bool inv=false){
+        Block=pis;
+        Inverted=inv;
+        if(inv)TargetDistance=Block.HighestPosition;
+        else TargetDistance=Block.LowestPosition;
+
+        Direction = pis.GetPosition() - pis.Top.GetPosition();
+        Direction.Normalize();
+    }
+
+    public bool CheckInvertedTag(String tag){
+        if(Block.CustomName.Contains(tag))Inverted = true;
+
+        return Inverted;
+    }
+
+    public string CheckInOrderDirection(Vector3D inOrderVector, bool foundInverted){
+        double vectorDot = Vector3D.Dot(inOrderVector,Direction);
+        if(vectorDot>0.9f){
+            if(Inverted)return "Inconsistent Inv Tag\n"+this.getReport();
+        }
+        else if(vectorDot<0.1f && vectorDot>-0.1f){
+            return "Piston Out of Order\n"+this.getReport();
+        }
+        else if(vectorDot<-0.9f){
+            if(foundInverted)Inverted = true;
+            else return "Missing Inv Tag\n"+this.getReport();
+        }
+        return "";
+    }
+
+    public string getReport(){
+        return ""+Block.CustomName+" | "+ (Inverted ? "Inverted" : "In Order") + "\n";
+    }
+}
+//Hard Controllers ---/
+////////////////////////////////////////////////////////////
+//Soft Controllers ---/
+
 /**
 * The SoftController Controlls the extra components functions of the mining platform, 
 * that are not required for the platform to work.
@@ -277,12 +329,18 @@ public class DrillController{
 public class SoftController{
     private ScriptConfig config;
     private MessageScreen msgScreen;
+    private StateProvider stateProvider;
 
     private ScreenController screenController;
 
     private IMyTerminalBlock lTerminalBlock;
-    public SoftController(ScriptConfig config, MessageScreen msgScreen){
+    public SoftController(
+        ScriptConfig config, 
+        StateProvider stateProvider,
+        MessageScreen msgScreen){
+        
         this.config = config;
+        this.stateProvider = stateProvider;
         this.msgScreen = msgScreen;
         screenController = new ScreenController(config);
     }
@@ -303,7 +361,8 @@ public class SoftController{
     }
 
     public void UpdateScreens(string msg){
-        screenController.UpdateScreens(msg);
+        if(config.LcdColorCoding)
+        screenController.UpdateScreens(msg, stateProvider.stateData.Col);
     }
 }
 
@@ -358,9 +417,10 @@ public class ScreenController{
         }
     }
 
-    public void UpdateScreens(string msg){
+    public void UpdateScreens(string msg, Color col){
         for(int i=0;i<Screens.Count;i++){
             lTextSurface = Screens[i];
+            if(config.LcdColorCoding)lTextSurface.FontColor = col;
             lTextSurface.WriteText(msg);
         }
     }
@@ -373,54 +433,13 @@ public class ScreenController{
     }
 }
 
-
-
-// Blocks
-public class PistonBlock{
-    public IMyPistonBase Block;
-    public bool Inverted;
-    public float TargetDistance;
-    public Vector3D Direction;
-
-    public PistonBlock(IMyPistonBase pis, bool inv=false){
-        Block=pis;
-        Inverted=inv;
-        if(inv)TargetDistance=Block.HighestPosition;
-        else TargetDistance=Block.LowestPosition;
-
-        Direction = pis.GetPosition() - pis.Top.GetPosition();
-        Direction.Normalize();
-    }
-
-    public bool CheckInvertedTag(String tag){
-        if(Block.CustomName.Contains(tag))Inverted = true;
-
-        return Inverted;
-    }
-
-    public string CheckInOrderDirection(Vector3D inOrderVector, bool foundInverted){
-        double vectorDot = Vector3D.Dot(inOrderVector,Direction);
-        if(vectorDot>0.9f){
-            if(Inverted)return "Inconsistent Inv Tag\n"+this.getReport();
-        }
-        else if(vectorDot<0.1f && vectorDot>-0.1f){
-            return "Piston Out of Order\n"+this.getReport();
-        }
-        else if(vectorDot<-0.9f){
-            if(foundInverted)Inverted = true;
-            else return "Missing Inv Tag\n"+this.getReport();
-        }
-        return "";
-    }
-
-    public string getReport(){
-        return ""+Block.CustomName+" | "+ (Inverted ? "Inverted" : "In Order") + "\n";
-    }
-}
+//Soft Controllers ---/
+////////////////////////////////////////////////////////////
+//Generic ---
 
 // Config
 public class ScriptConfig{
-    private bool IsDevelopment = true;
+    public bool IsDevelopment { get; } = true;
     private string version;
 
     //Config Values
@@ -466,6 +485,25 @@ public class ScriptConfig{
     public string StartTimerTag="/Start/";
     public string PauseTimerTag="/Pause/";
     public string FinishedTimerTag="/Finished/";
+
+    // Color Coding
+    public readonly Dictionary<StateType,StateData> StateConfig = 
+    new Dictionary<StateType, StateData>
+        {
+            {StateType.SET,new StateData("Set",Color.Magenta)},
+            {StateType.START,new StateData("Start",Color.Cyan)},
+            {StateType.PAUSE,new StateData("Pause",Color.Yellow)},
+            {StateType.REFRESH,new StateData("Refresh",Color.Violet)},
+            {StateType.STANDBY,new StateData("Waiting For Commands",Color.White)},
+            {StateType.EMERGENCY,new StateData("Emergency Stop",Color.Crimson)},
+            {StateType.AUTOPAUSE,new StateData("Auto Pause",Color.Gold)},
+            {StateType.ALIGNING,new StateData("Aligning...",Color.DodgerBlue)},
+            {StateType.SETMOVINGPARTS,new StateData("Setting Moving Parts",Color.DodgerBlue)},
+            {StateType.FINISHED,new StateData("Mining Finished",Color.Lime)},
+            {StateType.ALIGNINGSTARTINGPOSITION,new StateData("Alingning Starting Position",Color.Magenta)},
+            {StateType.DIGGING,new StateData("Digging...",Color.Tomato)},
+            {StateType.INIT,new StateData("Initializing...",Color.Tomato)}
+        };
     
     public ScriptConfig(string version, string mode){
         this.version = version;
@@ -531,27 +569,54 @@ public class ScriptConfig{
 
         +"\n---";
     }
+
+    public bool CheckStateConfig(){
+        if(!IsDevelopment)return true;
+
+        foreach(StateType i in Enum.GetValues(typeof(StateType))){
+            if(!StateConfig.ContainsKey(i))return false;
+        }
+
+        return true;
+    }
 }
 
 // Screen and Messages
 public class StateProvider {
-    public StateType state { get; set; }
+    private StateType state;
+    public StateData stateData;
 
-    public StateProvider(StateType state){
+    private readonly ScriptConfig config;
+
+    public StateProvider(ScriptConfig config,StateType state){
+        this.config = config;
+        this.setState(state);
+    }
+
+    public void setState(StateType state){
         this.state = state;
+        this.stateData = config.StateConfig[state];
+    }
+
+    public StateType getState(){
+        return state;
     }
 }
 
 public class MessageScreen{
+    private readonly StateProvider stateProvider;
+    private readonly ScriptConfig config;
+
     private string IndexText;
     private bool index = true;
-    private readonly StateProvider stateProvider;
+
     private string StandardMessages = "";
     private string LastMessages = "";
 
 
-    public MessageScreen(StateProvider sp){
-        stateProvider = sp;
+    public MessageScreen(ScriptConfig config,StateProvider stateProvider){
+        this.config = config;
+        this.stateProvider = stateProvider;
     }
 
     public string buildMessage(){
@@ -566,11 +631,15 @@ public class MessageScreen{
     }
 
     public string buildIndex(){
-        if(index)IndexText = "[/-/-/-] ";
-        else IndexText = "[-/-/-/] ";
+        IndexText = "";
+
+        if(config.IsDevelopment)IndexText += "[Development]\n";
+
+        if(index)IndexText += "[/-/-/-] ";
+        else IndexText += "[-/-/-/] ";
         index = !index;
 
-        IndexText += stateProvider.state.ToString() + "...\n";
+        IndexText += stateProvider.stateData.Text + "\n";
         return IndexText;
     }
 
@@ -580,34 +649,37 @@ public class MessageScreen{
 
 }
 
-//Classes ---/
-
+//Generic ---/
 ////////////////////////////////////////////////////////////
 //Init ---
-
-// Config And Saving
-static ScriptConfig config = new ScriptConfig(version,versionTag);
 MyIni gIni = new MyIni();
 MyIniParseResult gIniResult;
-
-// ScreenMessaging
-static StateProvider mainState = new StateProvider(StateType.INIT);
-
-static MessageScreen messageScreen = new MessageScreen(mainState);
 
 // Blocks
 List<IMyTerminalBlock> gTerminalBlocks = new List<IMyTerminalBlock>();
 
-// Controllers
-PlatformController mainController = new PlatformController(config,messageScreen);
-SoftController softController = new SoftController(config,messageScreen);
 //Init ---/
 ////////////////////////////////////////////////////////////
+//Declaration ---
+// Config And Saving
+ScriptConfig config;
 
+// State Mamagement
+StateProvider mainState;
+
+// ScreenMessaging
+MessageScreen messageScreen;
+
+// Controllers
+PlatformController mainController;
+SoftController softController;
+//Declaration ---/
+////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
 //Main ---
 public Program()
 {
+    Init();
     if(!GetConfig())SetConfig();
 }
 
@@ -645,7 +717,22 @@ public void Main(string argument, UpdateType updateSource)
 }
 //Main ---/
 ////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+//Init ---
+public void Init(){
+    config = new ScriptConfig(version,versionTag);
 
+    mainState = new StateProvider(config,StateType.INIT);
+
+    messageScreen = new MessageScreen(config,mainState);
+
+    mainController = new PlatformController(config,messageScreen);
+    softController = new SoftController(config,mainState,messageScreen);
+
+    if(!config.CheckStateConfig())messageScreen.AddMessage("DEV-DEBUG","EnumState Missing!");
+}
+//Init/
+////////////////////////////////////////////////////////////
 //Messages and Screens ---
 public void UpdateScreens(){
     if(config.ShowAdvancedData)GatherAdvancedData();
@@ -659,8 +746,8 @@ public void GatherAdvancedData(){
 
 }
 //Messages and Screens ---/
-
-// Blocks ---
+////////////////////////////////////////////////////////////
+//Block Providing ---
 
 public void RefreshHardBlocks(){
     mainController.getBlocksFrom(gTerminalBlocks);
@@ -676,8 +763,8 @@ public void GatherBlocks(){
     GridTerminalSystem.SearchBlocksOfName(config.MainTag,gTerminalBlocks);
 }
 
-// Blocks ---/
-
+//Block Providing ---/
+////////////////////////////////////////////////////////////
 //Config And Saving ---
 
 // Config
@@ -792,3 +879,4 @@ public void LoadData(){
     }
 }
 //Config And Saving ---/
+////////////////////////////////////////////////////////////
