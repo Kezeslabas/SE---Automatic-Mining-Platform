@@ -37,7 +37,7 @@ public enum StepType{
 
 //Classes ---
 
-// Controllers
+// Hard Controllers
 public class StepController{
     // StepType stepType = StepType.START;
 
@@ -48,6 +48,9 @@ public class StepController{
     }
 }
 
+/**
+* The PlatformController Controlls the basic and components functions of the mining platform.
+*/
 public class PlatformController{
     //Injection
     private ScriptConfig config;
@@ -263,6 +266,114 @@ public class DrillController{
         return Drills.Count;
     }
 }
+
+// Soft Controllers
+/**
+* The SoftController Controlls the extra components functions of the mining platform, 
+* that are not required for the platform to work.
+*
+* It controlls the screens, including the Programmable Block's main screen.
+*/
+public class SoftController{
+    private ScriptConfig config;
+    private MessageScreen msgScreen;
+
+    private ScreenController screenController;
+
+    private IMyTerminalBlock lTerminalBlock;
+    public SoftController(ScriptConfig config, MessageScreen msgScreen){
+        this.config = config;
+        this.msgScreen = msgScreen;
+        screenController = new ScreenController(config);
+    }
+
+    public void init(IMyProgrammableBlock me){
+        screenController.AddMainScreen(me);
+    }
+
+    public void getBlocksFrom(List<IMyTerminalBlock> blocks){
+        for(int i=0;i<blocks.Count;i++){
+            lTerminalBlock = blocks[i];
+            if(lTerminalBlock is IMyTextSurfaceProvider){
+                screenController.AddScreensOf(lTerminalBlock);
+            }
+        }
+
+        screenController.initScreens();
+    }
+
+    public void UpdateScreens(string msg){
+        screenController.UpdateScreens(msg);
+    }
+}
+
+public class ScreenController{
+    private List<IMyTextSurface> Screens = new List<IMyTextSurface>();
+    private ScriptConfig config;
+
+    private long MainEntity;
+
+    private string[] lScreenData;
+    private IMyTextSurface lTextSurface;
+    private IMyTextSurfaceProvider lTextSurfaceProvider;
+
+    public ScreenController(ScriptConfig config){
+        this.config = config;
+    }
+
+    public void AddMainScreen(IMyProgrammableBlock me){
+        Screens.Add(me.GetSurface(0));
+        MainEntity = me.EntityId;
+    }
+
+    public void AddScreensOf(IMyTerminalBlock block){
+        if(block is IMyTextPanel){
+            Screens.Add(block as IMyTextSurface);
+        }
+        else{
+            lScreenData=block.CustomData.Split('\n');
+            string currentString;
+            int n;
+            for(int i=0;i<lScreenData.Length;i++)
+            {
+                currentString=lScreenData[i];
+                if(currentString.StartsWith("@"))
+                {
+                    currentString=currentString.Substring(1);
+                    if(currentString.Contains(config.MainTag))
+                    {
+                        currentString=currentString.Replace(config.MainTag,"");
+                        if(Int32.TryParse(currentString, out n))
+                        {
+                            lTextSurfaceProvider=block as IMyTextSurfaceProvider;
+                            if(lTextSurfaceProvider.SurfaceCount>=n)
+                            {
+                                lTextSurface=lTextSurfaceProvider.GetSurface(n);
+                                Screens.Add(lTextSurface);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public void UpdateScreens(string msg){
+        for(int i=0;i<Screens.Count;i++){
+            lTextSurface = Screens[i];
+            lTextSurface.WriteText(msg);
+        }
+    }
+
+    public void initScreens(){
+        for(int i=0;i<Screens.Count;i++){
+            lTextSurface = Screens[i];
+            lTextSurface.ContentType=ContentType.TEXT_AND_IMAGE;
+        }
+    }
+}
+
+
 
 // Blocks
 public class PistonBlock{
@@ -489,7 +600,7 @@ List<IMyTerminalBlock> gTerminalBlocks = new List<IMyTerminalBlock>();
 
 // Controllers
 PlatformController mainController = new PlatformController(config,messageScreen);
-
+SoftController softController = new SoftController(config,messageScreen);
 //Init ---/
 ////////////////////////////////////////////////////////////
 
@@ -516,15 +627,20 @@ public void Main(string argument, UpdateType updateSource)
     {
         
     }
-    SetConfig();
+
+    // Just Testing Stuff
+    if(!GetConfig())SetConfig();
+
     GatherBlocks();
     RefreshHardBlocks();
+    RefreshSoftBlocks();
 
     messageScreen.AddMessage("Hor",""+mainController.HorizontalPistons.getCount());
     messageScreen.AddMessage("Ver",""+mainController.VerticalPistons.getCount());
     messageScreen.AddMessage("Rotor",""+mainController.Rotor.IsSet);
     messageScreen.AddMessage("Drill",""+mainController.Drills.getCount());
-
+    // ---
+    
     UpdateScreens();
 }
 //Main ---/
@@ -536,6 +652,7 @@ public void UpdateScreens(){
 
     string msg = messageScreen.buildMessage();
     Echo(msg);
+    softController.UpdateScreens(msg);
 }
 
 public void GatherAdvancedData(){
@@ -547,6 +664,11 @@ public void GatherAdvancedData(){
 
 public void RefreshHardBlocks(){
     mainController.getBlocksFrom(gTerminalBlocks);
+}
+
+public void RefreshSoftBlocks(){
+    softController.init(Me);
+    softController.getBlocksFrom(gTerminalBlocks);
 }
 
 public void GatherBlocks(){
