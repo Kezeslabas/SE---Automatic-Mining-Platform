@@ -5,9 +5,9 @@
 //'Alt+S' // Triggers `Todo: Toggle Start`
 
 Getting Started:
-    ☐ Implement Config Get and Set @started(21-02-06 09:54)
+    ✔ Implement Config Get and Set @done(21-02-13 11:31)
         ✔ Implement Set @done(21-02-06 18:27)
-        ☐ Implement Get @started(21-02-06 18:28)
+        ✔ Implement Get @done(21-02-13 11:31)
     ✔ Implement Saving and Loading @started(21-02-06 09:54) @done(21-02-06 18:38) @lasted(8h44m39s)
     ✔ Implement Response Screen Base @started(21-02-06 11:28) @done(21-02-06 16:53) @lasted(5h25m31s)
     ✔ Implement Hard Block Providing @started(21-02-06 18:26) @done(21-02-06 18:37) @lasted(11m24s)
@@ -16,3 +16,6 @@ Features:
     ✔ Smart Piston identification @done(21-02-07 13:12)
     ☐ Soft Block Providing
         ☐ LCD Usage
+    ☐ Argument Decoder
+    ☐ Step Controller
+    ☐ Piston State Decoding

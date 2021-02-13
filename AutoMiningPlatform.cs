@@ -326,7 +326,7 @@ public class ScriptConfig{
     public float HighCargoLimit = 0.9f;
     public float LowCargoLimit = 0.5f;
 
-    bool ShowAdvancedData = true;//Special
+    public bool ShowAdvancedData = true;
     public bool UseCargoContainersOnly = true;
     public bool LcdColorCoding = true;
     public bool DynamicRotorTensor = true;
@@ -364,9 +364,6 @@ public class ScriptConfig{
     public void setShowAdvancedData(bool b){
         if(!IsDevelopment)ShowAdvancedData = !b;
     }
-    public bool getShowAdvancedData(){
-        return ShowAdvancedData;
-    }
 
     public String toConfigString(){
         return ""
@@ -401,7 +398,7 @@ public class ScriptConfig{
 
         +"DigModeSpeed="+DigModeSpeed+"\n"
 
-        +"\n[Advanced Options]\n"
+        +"\n[Hard Options]\n"
         +";They will apply when the Set command is used.\n\n"
 
         +"SmartDetection="+SmartDetection+"\n"
@@ -500,7 +497,7 @@ PlatformController mainController = new PlatformController(config,messageScreen)
 //Main ---
 public Program()
 {
-
+    if(!GetConfig())SetConfig();
 }
 
 public void Save()
@@ -535,7 +532,7 @@ public void Main(string argument, UpdateType updateSource)
 
 //Messages and Screens ---
 public void UpdateScreens(){
-    if(config.getShowAdvancedData())GatherAdvancedData();
+    if(config.ShowAdvancedData)GatherAdvancedData();
 
     string msg = messageScreen.buildMessage();
     Echo(msg);
@@ -562,10 +559,86 @@ public void GatherBlocks(){
 //Config And Saving ---
 
 // Config
+
 public bool GetConfig(bool softLoad = false){
     if(Me.CustomData=="" || !gIni.TryParse(Me.CustomData, out gIniResult)){
+        messageScreen.AddMessage("Config","Couldn't load config! Reseting...");
         return false;
     }
+
+    bool hardChange = false;
+    string s;
+    float f;
+    bool b;
+
+    //Highlighted options
+    s=gIni.Get("Highlighted Options","MainTag").ToString();
+    if(s != config.MainTag){hardChange = true; config.MainTag = s;}
+    f=gIni.Get("Highlighted Options","MaxRotorAngle").ToSingle();
+    if(f != config.MaxRotorAngle){hardChange = true; config.MaxRotorAngle = f;}
+    f=gIni.Get("Highlighted Options","MinRotorAngle").ToSingle();
+    if(f != config.MinRotorAngle){hardChange = true; config.MinRotorAngle = f;}
+
+
+    //Hard Options
+    b=gIni.Get("Hard Options","SmartDetection").ToBoolean();
+    if(b != config.SmartDetection){hardChange = true; config.SmartDetection = b;}
+    b=gIni.Get("Hard Options","AlwaysRetractHorizontalPistons").ToBoolean();
+    if(b != config.AlwaysRetractHorizontalPistons){hardChange = true; config.AlwaysRetractHorizontalPistons = b;}
+    b=gIni.Get("Hard Options","ShareInertiaTensor").ToBoolean();
+    if(b != config.ShareInertiaTensor){hardChange = true; config.ShareInertiaTensor = b;}
+
+    f=gIni.Get("Hard Options","MinHorizontalLimit").ToSingle();
+    if(f != config.MinHorizontalLimit){hardChange = true; config.MinHorizontalLimit = f;}
+    f=gIni.Get("Hard Options","MaxHorizontalLimit").ToSingle();
+    if(f != config.MaxHorizontalLimit){hardChange = true; config.MaxHorizontalLimit = f;}
+
+    f=gIni.Get("Hard Options","MinVerticalLimit").ToSingle();
+    if(f != config.MinVerticalLimit){hardChange = true; config.MinVerticalLimit = f;}
+    f=gIni.Get("Hard Options","MaxVerticalLimit").ToSingle();
+    if(f != config.MaxVerticalLimit){hardChange = true; config.MaxVerticalLimit = f;}
+
+    s=gIni.Get("Hard Options","VerTag").ToString();
+    if(s != config.VerTag){hardChange = true; config.VerTag = s;}
+    s=gIni.Get("Hard Options","HorTag").ToString();
+    if(s != config.HorTag){hardChange = true; config.HorTag = s;}
+    s=gIni.Get("Hard Options","InvTag").ToString();
+    if(s != config.InvTag){hardChange = true; config.InvTag = s;}
+    s=gIni.Get("Hard Options","StartTimerTag").ToString();
+    if(s != config.StartTimerTag){hardChange = true; config.StartTimerTag = s;}
+    s=gIni.Get("Hard Options","PauseTimerTag").ToString();
+    if(s != config.PauseTimerTag){hardChange = true; config.PauseTimerTag = s;}
+    s=gIni.Get("Hard Options","FinishedTimerTag").ToString();
+    if(s != config.FinishedTimerTag){hardChange = true; config.FinishedTimerTag = s;}
+
+
+    //Soft Options
+    config.TransmissionReceiverAddress=gIni.Get("Quick Options","TransmissionReceiverAddress").ToInt64();
+
+    config.UseAutoPause=gIni.Get("Quick Options","UseAutoPause").ToBoolean();
+    config.HighCargoLimit=gIni.Get("Quick Options","HighCargoLimit").ToSingle();
+    config.LowCargoLimit=gIni.Get("Quick Options","LowCargoLimit").ToSingle();
+    config.UseCargoContainersOnly=gIni.Get("Quick Options","UseCargoContainersOnly").ToBoolean();
+
+    config.ShowAdvancedData=gIni.Get("Quick Options","ShowAdvancedData").ToBoolean();
+
+    config.LcdColorCoding=gIni.Get("Quick Options","LcdColorCoding").ToBoolean();
+
+    config.DynamicRotorTensor=gIni.Get("Quick Options","DynamicRotorTensor").ToBoolean();
+    config.AlwaysUpdateDetailedInfo=gIni.Get("Quick Options","AlwaysUpdateDetailedInfo").ToBoolean();
+
+    config.RotorSpeedAt10m=gIni.Get("Quick Options","RotorSpeedAt10m").ToSingle();
+    config.HorizontalExtensionSpeed=gIni.Get("Quick Options","HorizontalExtensionSpeed").ToSingle();
+    config.VerticalExtensionSpeed=gIni.Get("Quick Options","VerticalExtensionSpeed").ToSingle();
+    
+    config.DigModeSpeed=gIni.Get("Quick Options","DigModeSpeed").ToSingle();
+
+
+    if(hardChange){
+        messageScreen.AddMessage("Config","Hard Changes Detected!");
+    }
+    
+    messageScreen.AddMessage("Config", "Loaded!");
 
     return true;
 }
@@ -573,6 +646,7 @@ public bool GetConfig(bool softLoad = false){
 public void SetConfig(){
     // Set Config String By Hand, for better editability in Custom Data
     Me.CustomData=config.toConfigString();
+    messageScreen.AddMessage("Config", "Config Set to Custom Data");
     
 }
 
