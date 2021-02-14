@@ -25,6 +25,8 @@ Features:
     ☐ Rotor Step Finish Detection
 
 Documentation:
-    ☐ Document the Hard Controllers
-    ☐ Document the Soft Controllers
-    ☐ Document Screen and Message usage
+    ✔ Document the Hard Controllers @done(21-02-14 11:09)
+    ✔ Document the Soft Controllers @done(21-02-14 11:26)
+    ✔ Document Screen and Message usage @done(21-02-14 11:46)
+    ✔ Document Config @done(21-02-14 11:34)
+    ✔ Document Methods @done(21-02-14 11:41)

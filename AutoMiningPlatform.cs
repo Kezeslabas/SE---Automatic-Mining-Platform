@@ -3,11 +3,11 @@ string versionTag = "DEVELOPMENT";
 string version = "0.1.0";
 
 
-////////////////////////////////////////////////////////////
+//-//////////////////////////////////////////////////
 //State ---
-/**
-* The different States of The script
-*/
+/// <summary>
+/// The different States of The script
+/// </summary>
 public enum StateType{
     SET,
     START,
@@ -24,8 +24,11 @@ public enum StateType{
     INIT
 }
 
-public struct StateData
-{
+/// <summary>
+/// A structure that can hold the different data assigned to a <c>StateType</c>
+/// <see cref="StateType"/>
+/// </summary>
+public struct StateData{
     public string Text;
     public Color Col;
     public StateData(string Text,Color Col)
@@ -44,7 +47,7 @@ public enum StepType{
     FINISH
 }
 
-////////////////////////////////////////////////////////////
+//-//////////////////////////////////////////////////
 //Hard Controllers ---
 public class StepController{
     // StepType stepType = StepType.START;
@@ -56,9 +59,9 @@ public class StepController{
     }
 }
 
-/**
-* The PlatformController Controlls the basic and components functions of the mining platform.
-*/
+/// <summary>
+/// The PlatformController Controlls the basic components and functions of the mining platform.
+/// </summary>
 public class PlatformController{
     //Injection
     private ScriptConfig config;
@@ -78,6 +81,11 @@ public class PlatformController{
         this.screen = screen;
     }
 
+    /// <summary>
+    /// Checks the provided blocks and distributes them to the other controllers.
+    /// </summary>
+    /// <param name="blocks">List with Blocks gathered from the GridTerminalSystem</param>
+    /// <returns>Returns false, if a required component is not found.</returns>
     public bool getBlocksFrom(List<IMyTerminalBlock> blocks){
         HorizontalPistons.Clear();
         VerticalPistons.Clear();
@@ -94,6 +102,7 @@ public class PlatformController{
             }
         }
 
+        //Escape if Rotor not found
         if(!Rotor.IsSet){
             screen.AddMessage("Error"," Rotor not found!");
             return false;
@@ -102,7 +111,6 @@ public class PlatformController{
         double vectorDot = 0;
         IMyPistonBase piston;
         Vector3D checkVector;
-        // screen.AddMessage("Debug","Rotor:\n"+Rotor.Vertical.ToString());
         //Get Pistons and Drills
         for(int i=0;i<blocks.Count;i++){
             lTerminalBlock = blocks[i];
@@ -180,13 +188,20 @@ public class PlatformController{
     }
 }
 
+/// <summary>
+/// It controlls the Rotor.
+/// </summary>
 public class RotationController{
     public bool IsSet = false;
     public Vector3D Vertical;
     
     IMyMotorStator Rotor;
 
-
+    /// <summary>
+    /// Sets the <c>RotationController</c> to a Rotor.
+    /// </summary>
+    /// <param name="block">Rotor</param>
+    /// <returns>Retruns false, if Rotor already set.</returns>
     public bool SetRotor(IMyMotorStator block){
         if(IsSet)return false;
         Rotor = block;
@@ -198,12 +213,19 @@ public class RotationController{
         return IsSet;
     }
 
+    /// <summary>
+    /// Resets the RotationController
+    /// </summary>
     public void Clear(){
         IsSet = false;
         Rotor = null;
+        Vertical = Vector3D.Zero;
     }
 }
 
+/// <summary>
+/// It controlls a piston arm.
+/// </summary>
 public class PistonController{
     List<PistonBlock> pistons = new List<PistonBlock>();
 
@@ -211,14 +233,20 @@ public class PistonController{
         pistons.Add(pb);
     }
 
+
+    /// <returns>Returns the number of pisons in the controller.</returns>
     public int getCount(){
         return pistons.Count;
     }
-
+    /// <summary>Resets the controller</summary>
     public void Clear(){
         pistons.Clear();
     }
 
+    /// <summary>Checks and sets the directions of the pistons.</summary>
+    /// <param name="invTag">The Tag that identifies Inverted Pistons</param>
+    /// <param name="smart">Whether use smart detection or not.</param>
+    /// <returns>Return Error messageses, if any.</returns>
     public string CheckDirections(String invTag, bool smart){
         if(pistons.Count == 0)return "";
 
@@ -247,6 +275,7 @@ public class PistonController{
         return "";
     }
 
+    /// <returns>Returns a report from all Pistons in the controller</returns>
     public string getReport(){
         string result = "";
 
@@ -259,6 +288,9 @@ public class PistonController{
     }
 }
 
+/// <summary>
+/// It Controlls the drills.
+/// </summary>
 public class DrillController{
     List<IMyShipDrill> Drills = new List<IMyShipDrill>();
 
@@ -266,15 +298,20 @@ public class DrillController{
         Drills.Add(block);
     }
 
+    /// <summary>Resets the DrillController</summary>
     public void Clear(){
         Drills.Clear();
     }
 
+    /// <returns>Returns the number of drills in the container</returns>
     public int getCount(){
         return Drills.Count;
     }
 }
 // Block
+/// <summary>
+/// A Piston with additional data for the platform.
+/// </summary>
 public class PistonBlock{
     public IMyPistonBase Block;
     public bool Inverted;
@@ -291,12 +328,19 @@ public class PistonBlock{
         Direction.Normalize();
     }
 
+    /// <summary>Checks if a piston has the Inverted Tag, and sets the PistonBlock</summary>
+    /// <param name="tag">Inverted Tag String</param>
+    /// <returns>Return true if the Piston is Inverted</returns>
     public bool CheckInvertedTag(String tag){
         if(Block.CustomName.Contains(tag))Inverted = true;
 
         return Inverted;
     }
 
+    /// <summary>Checks the Piston's direction, and sets it accordingly</summary>
+    /// <param name="inOrderVector">The In-Order vector to Check against.</param>
+    /// <param name="foundInverted">If the Inverted direction already found.</param>
+    /// <returns>Returns errors, if any.</returns>
     public string CheckInOrderDirection(Vector3D inOrderVector, bool foundInverted){
         double vectorDot = Vector3D.Dot(inOrderVector,Direction);
         if(vectorDot>0.9f){
@@ -312,6 +356,7 @@ public class PistonBlock{
         return "";
     }
 
+    /// <returns>Returns a report from the Piston</returns>
     public string getReport(){
         return ""+Block.CustomName+" | "+ (Inverted ? "Inverted" : "In Order") + "\n";
     }
@@ -320,12 +365,11 @@ public class PistonBlock{
 ////////////////////////////////////////////////////////////
 //Soft Controllers ---/
 
-/**
-* The SoftController Controlls the extra components functions of the mining platform, 
-* that are not required for the platform to work.
-*
-* It controlls the screens, including the Programmable Block's main screen.
-*/
+/// <summary>
+/// The SoftController Controlls the extra components and functions of the mining platform, 
+/// that are not required for the platform to work.
+/// It controlls the screens, including the Programmable Block's main screen.
+/// </summary>
 public class SoftController{
     private ScriptConfig config;
     private MessageScreen msgScreen;
@@ -345,10 +389,14 @@ public class SoftController{
         screenController = new ScreenController(config);
     }
 
+    /// <summary>Sets the main screen.</summary>
+    /// <param name="me">This Programmable Block</param>
     public void init(IMyProgrammableBlock me){
         screenController.AddMainScreen(me);
     }
 
+    /// <summary>Checks the provided blocks and distributes them to the other controllers.</summary>
+    /// <param name="blocks">List of Blocks gathered from the GridTerminalSystem</param>
     public void getBlocksFrom(List<IMyTerminalBlock> blocks){
         for(int i=0;i<blocks.Count;i++){
             lTerminalBlock = blocks[i];
@@ -360,12 +408,16 @@ public class SoftController{
         screenController.initScreens();
     }
 
+    /// <summary>Uses the ScreenController to update all the screens with a message</summary>
+    /// <param name="msg">The message to write out to the screens.</param>
     public void UpdateScreens(string msg){
-        if(config.LcdColorCoding)
         screenController.UpdateScreens(msg, stateProvider.stateData.Col);
     }
 }
 
+/// <summary>
+/// It Controlls the screens and LCDs of the script.
+/// </summary>
 public class ScreenController{
     private List<IMyTextSurface> Screens = new List<IMyTextSurface>();
     private ScriptConfig config;
@@ -380,12 +432,18 @@ public class ScreenController{
         this.config = config;
     }
 
+    /// <summary>Sets the main [0] screen of the script.</summary>
+    /// <param name="me">This Programmable Block</param>
     public void AddMainScreen(IMyProgrammableBlock me){
         Screens.Add(me.GetSurface(0));
         MainEntity = me.EntityId;
     }
 
-    public void AddScreensOf(IMyTerminalBlock block){
+    /// <summary>Searches for Screens in a Block, and adds the based on the Custom Data</summary>
+    /// <param name="block">A Block that is IMyTextSurfaceProvider</param>
+    /// <returns>Returns false if provided block is not IMyTextSurfaceProvider</returns>
+    public bool AddScreensOf(IMyTerminalBlock block){
+        if(block is not IMyTextSurfaceProvider)return false;
         if(block is IMyTextPanel){
             Screens.Add(block as IMyTextSurface);
         }
@@ -415,8 +473,12 @@ public class ScreenController{
                 }
             }
         }
+        return true;
     }
 
+    /// <summary>Updates the Screens with a message, and a color, based on the config.</summary>
+    /// <param name="msg">Message to display.</param>
+    /// <param name="col">Color of the text on screen</param>
     public void UpdateScreens(string msg, Color col){
         for(int i=0;i<Screens.Count;i++){
             lTextSurface = Screens[i];
@@ -425,6 +487,7 @@ public class ScreenController{
         }
     }
 
+    /// <summary>Changes all screens to display Text and Images</summary>
     public void initScreens(){
         for(int i=0;i<Screens.Count;i++){
             lTextSurface = Screens[i];
@@ -438,6 +501,9 @@ public class ScreenController{
 //Generic ---
 
 // Config
+/// <summary>
+/// Class to Store all the configuration data for the script
+/// </summary>
 public class ScriptConfig{
     public bool IsDevelopment { get; } = true;
     private string version;
@@ -510,10 +576,8 @@ public class ScriptConfig{
         if(mode == "RELEASE")IsDevelopment = false;
     }
 
-    public void setShowAdvancedData(bool b){
-        if(!IsDevelopment)ShowAdvancedData = !b;
-    }
-
+    /// <summary>Converts the config data to a string, that can be parsed by the Ini</summary>
+    /// <returns>Return a string that contains the configurable data.</returns>
     public String toConfigString(){
         return ""
         +"[Mining Platform Configuration]\n"
@@ -570,6 +634,7 @@ public class ScriptConfig{
         +"\n---";
     }
 
+    /// <returns>Returns false if not all StateType has config data.</returns>
     public bool CheckStateConfig(){
         if(!IsDevelopment)return true;
 
@@ -582,6 +647,9 @@ public class ScriptConfig{
 }
 
 // Screen and Messages
+/// <summary>
+/// Stores the Current State of the Script
+/// </summary>
 public class StateProvider {
     private StateType state;
     public StateData stateData;
@@ -593,16 +661,22 @@ public class StateProvider {
         this.setState(state);
     }
 
+    /// <summary>Sets the State</summary>
+    /// <param name="state">The State</param>
     public void setState(StateType state){
         this.state = state;
         this.stateData = config.StateConfig[state];
     }
 
+    /// <returns>Returns the Current State</returns>
     public StateType getState(){
         return state;
     }
 }
 
+/// <summary>
+/// Handles the messages that are displayed.
+/// </summary>
 public class MessageScreen{
     private readonly StateProvider stateProvider;
     private readonly ScriptConfig config;
@@ -619,6 +693,7 @@ public class MessageScreen{
         this.stateProvider = stateProvider;
     }
 
+    /// <returns>Builds and Returns a constructed message</returns>
     public string buildMessage(){
         string result = buildIndex();
 
@@ -630,6 +705,7 @@ public class MessageScreen{
         return result;
     }
 
+    /// <returns>Returns the header part of the message</returns>
     public string buildIndex(){
         IndexText = "";
 
@@ -643,6 +719,9 @@ public class MessageScreen{
         return IndexText;
     }
 
+    /// <summary>Adds Info to the message with a tag and content</summary>
+    /// <param name="tag">Tag</param>
+    /// <param name="content">Content</param>
     public void AddMessage(string tag, string content){
         StandardMessages += "["+tag+"] "+content+"\n";
     }
@@ -719,6 +798,10 @@ public void Main(string argument, UpdateType updateSource)
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
 //Init ---
+/// <summary>
+/// Sets the Instances of the controllers and providers.
+/// Checks integritiy if in Development
+/// </summary>
 public void Init(){
     config = new ScriptConfig(version,versionTag);
 
@@ -734,6 +817,9 @@ public void Init(){
 //Init/
 ////////////////////////////////////////////////////////////
 //Messages and Screens ---
+/// <summary>
+/// Initiates the Update Sequence for the Detailed Info and the Screens
+/// </summary>
 public void UpdateScreens(){
     if(config.ShowAdvancedData)GatherAdvancedData();
 
@@ -749,15 +835,21 @@ public void GatherAdvancedData(){
 ////////////////////////////////////////////////////////////
 //Block Providing ---
 
+/// <summary>Get Hard Blocks from gTerminalBlocks</summary>
 public void RefreshHardBlocks(){
     mainController.getBlocksFrom(gTerminalBlocks);
 }
 
+/// <summary>Get Soft Blocks from gTerminalBlocks</summary>
 public void RefreshSoftBlocks(){
     softController.init(Me);
     softController.getBlocksFrom(gTerminalBlocks);
 }
 
+/// <summary>
+/// Gathers Blocks form the Gridterminal System to gTerminalBlocks.
+/// Uses the MainTag from the Config as a filter.
+/// </summary>
 public void GatherBlocks(){
     gTerminalBlocks.Clear();
     GridTerminalSystem.SearchBlocksOfName(config.MainTag,gTerminalBlocks);
