@@ -443,7 +443,7 @@ public class ScreenController{
     /// <param name="block">A Block that is IMyTextSurfaceProvider</param>
     /// <returns>Returns false if provided block is not IMyTextSurfaceProvider</returns>
     public bool AddScreensOf(IMyTerminalBlock block){
-        if(block is not IMyTextSurfaceProvider)return false;
+        if(!(block is IMyTextSurfaceProvider))return false;
         if(block is IMyTextPanel){
             Screens.Add(block as IMyTextSurface);
         }
