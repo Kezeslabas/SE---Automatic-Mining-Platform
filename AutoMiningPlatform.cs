@@ -497,7 +497,84 @@ public class ScreenController{
 }
 
 //Soft Controllers ---/
-////////////////////////////////////////////////////////////
+//-//////////////////////////////////////////////////////////
+//Script and Commands ---
+
+/// <summary>
+/// Contains the allowed commands of the script
+/// </summary>
+public enum COMMAND{
+    UNDEFINED,
+    SET
+}
+
+/// <summary>
+/// Decodes the argument to a COMMAND, and fills an array with the arguments.
+/// </summary>
+public class ArgumentDecoder{
+    
+    private readonly MessageScreen screen;
+    
+    private string[] args;
+    private COMMAND command = COMMAND.UNDEFINED;
+
+    public ArgumentDecoder(MessageScreen screen){
+        this.screen = screen;
+    }
+
+    public COMMAND getCommand(){
+        return command;
+    }
+
+    public bool Parse(string argument){
+        if(argument == ""){
+            screen.AddMessage("Error","No argument given!");
+            return false;
+        }
+        args = argument.Split(';');
+
+        if(!Enum.TryParse<COMMAND>(args[0].ToUpper(),out command)){
+            screen.AddMessage("Error","Command \""+args[0]+"\" not found!");
+            return false;
+        }
+
+        return true;
+    }
+}
+
+/// <summary>
+/// Parses and Routes an argument to a COMMAND, implementing the logic of the COMMAND
+/// </summary>
+public class ScriptController{
+    private readonly MessageScreen screen;
+    private readonly ArgumentDecoder argumentDecoder;
+
+    public ScriptController(MessageScreen screen){
+        this.argumentDecoder = new ArgumentDecoder(screen);
+        this.screen = screen;
+    }
+
+    public void ParseAndRoute(string argument){
+        if(argumentDecoder.Parse(argument)){
+            Route();
+        }
+    }
+
+    private void Route(){
+        switch(argumentDecoder.getCommand()){
+            case COMMAND.SET:{
+                screen.AddMessage("TEST","WOHOOO SET!");
+                break;
+            }
+            default:{
+                break;
+            }
+        }
+    }
+
+}
+//Script and Commands ---/
+//-//////////////////////////////////////////////////////////
 //Generic ---
 
 // Config
@@ -554,7 +631,7 @@ public class ScriptConfig{
 
     // Color Coding
     public readonly Dictionary<StateType,StateData> StateConfig = 
-    new Dictionary<StateType, StateData>
+        new Dictionary<StateType, StateData>
         {
             {StateType.SET,new StateData("Set",Color.Magenta)},
             {StateType.START,new StateData("Start",Color.Cyan)},
@@ -752,6 +829,7 @@ MessageScreen messageScreen;
 // Controllers
 PlatformController mainController;
 SoftController softController;
+ScriptController scriptController;
 //Declaration ---/
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
@@ -770,26 +848,26 @@ public void Save()
 
 public void Main(string argument, UpdateType updateSource)
 {
-    if((updateSource & UpdateType.Update100)==0)
-    {
+    if((updateSource & UpdateType.Update100)==0){
+        //Manual Run
 
+        scriptController.ParseAndRoute(argument);
     }
-    else
-    {
-        
+    else{
+        //Automatic Run
     }
 
     // Just Testing Stuff
-    if(!GetConfig())SetConfig();
+    // if(!GetConfig())SetConfig();
 
     GatherBlocks();
     RefreshHardBlocks();
     RefreshSoftBlocks();
 
-    messageScreen.AddMessage("Hor",""+mainController.HorizontalPistons.getCount());
-    messageScreen.AddMessage("Ver",""+mainController.VerticalPistons.getCount());
-    messageScreen.AddMessage("Rotor",""+mainController.Rotor.IsSet);
-    messageScreen.AddMessage("Drill",""+mainController.Drills.getCount());
+    // messageScreen.AddMessage("Hor",""+mainController.HorizontalPistons.getCount());
+    // messageScreen.AddMessage("Ver",""+mainController.VerticalPistons.getCount());
+    // messageScreen.AddMessage("Rotor",""+mainController.Rotor.IsSet);
+    // messageScreen.AddMessage("Drill",""+mainController.Drills.getCount());
     // ---
     
     UpdateScreens();
@@ -803,16 +881,20 @@ public void Main(string argument, UpdateType updateSource)
 /// Checks integritiy if in Development
 /// </summary>
 public void Init(){
-    config = new ScriptConfig(version,versionTag);
 
+    config = new ScriptConfig(version,versionTag);
     mainState = new StateProvider(config,StateType.INIT);
 
     messageScreen = new MessageScreen(config,mainState);
 
+    scriptController = new ScriptController(messageScreen);
     mainController = new PlatformController(config,messageScreen);
     softController = new SoftController(config,mainState,messageScreen);
 
     if(!config.CheckStateConfig())messageScreen.AddMessage("DEV-DEBUG","EnumState Missing!");
+
+
+
 }
 //Init/
 ////////////////////////////////////////////////////////////

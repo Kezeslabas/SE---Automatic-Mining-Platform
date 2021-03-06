@@ -4,6 +4,9 @@
 //'Alt+C' // Triggers `Todo: Toggle Cancelled`
 //'Alt+S' // Triggers `Todo: Toggle Start`
 
+//Legend
+@WIP : Work in Progress
+
 Getting Started:
     ✔ Implement Config Get and Set @done(21-02-13 11:31)
         ✔ Implement Set @done(21-02-06 18:27)
@@ -18,7 +21,13 @@ Features:
         ✔ LCD Panels @done(21-02-13 15:38)
         ✔ LCD Color Coding @done(21-02-13 17:22)
         ☐ Timers
-    ☐ Argument Decoder
+    ✔ Argument Decoder @done(21-03-06 19:04)
+    ☐ Script Controller
+        ✔ Core @done(21-03-06 19:04)
+        ☐ SET @WIP
+        ☐ REFRESH
+        ☐ START
+        ☐ STOP
     ☐ Step Controller
     ☐ Piston State Decoding
     ☐ Piston Step Finish Detection

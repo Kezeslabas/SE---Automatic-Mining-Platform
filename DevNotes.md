@@ -1,6 +1,7 @@
 # Notes for Development
 
 ## Screen and Messages
+
 - Messages
     - Each Massage Has
         - Tag: /n + String
@@ -14,12 +15,13 @@
     - Header
         - Name And Version?
     - Platform Status
-            - Steps + Infos
-            - StatusBar
+        - Steps + Infos
+        - StatusBar
     - Messages
     - Advanced Status
 
 ## Mining Platform
+
 - Rotation Provider
     - Rotor
 - Rotating Arm
@@ -28,6 +30,7 @@
     - Drills
 
 ## Soft Blocks
+
 - LCDs
 - Cargo Containers
 - Timers
