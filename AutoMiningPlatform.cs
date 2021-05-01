@@ -505,7 +505,12 @@ public class ScreenController{
 /// </summary>
 public enum COMMAND{
     UNDEFINED,
-    SET
+    SET,
+    REFRESH,
+    START,
+    PAUSE,
+    RESET,
+    DIG
 }
 
 /// <summary>
@@ -548,10 +553,12 @@ public class ArgumentDecoder{
 public class ScriptController{
     private readonly MessageScreen screen;
     private readonly ArgumentDecoder argumentDecoder;
+    private readonly StateProvider mainState;
 
-    public ScriptController(MessageScreen screen){
+    public ScriptController(MessageScreen screen, StateProvider mainState){
         this.argumentDecoder = new ArgumentDecoder(screen);
         this.screen = screen;
+        this.mainState = mainState;
     }
 
     public void ParseAndRoute(string argument){
@@ -562,14 +569,38 @@ public class ScriptController{
 
     private void Route(){
         switch(argumentDecoder.getCommand()){
-            case COMMAND.SET:{
-                screen.AddMessage("TEST","WOHOOO SET!");
-                break;
-            }
-            default:{
-                break;
-            }
+            case COMMAND.SET:RunSet();break;
+            case COMMAND.REFRESH:RunRefresh();break;
+            case COMMAND.START:RunStart();break;
+            case COMMAND.PAUSE:RunPause();break;
+            case COMMAND.RESET:RunReset();break;
+            case COMMAND.DIG:RunDig();break;
+            default:break;
         }
+    }
+
+    private void RunSet(){
+        mainState.setState(StateType.SET);
+    }
+
+    private void RunRefresh(){
+        mainState.setState(StateType.REFRESH);
+    }
+
+    private void RunStart(){
+        mainState.setState(StateType.START);
+    }
+
+    private void RunPause(){
+        mainState.setState(StateType.PAUSE);
+    }
+
+    private void RunReset(){
+        mainState.setState(StateType.RESET);
+    }
+
+    private void RunDig(){
+        // mainState.setState(StateType.DIG);
     }
 
 }
@@ -643,7 +674,7 @@ public class ScriptConfig{
             {StateType.ALIGNING,new StateData("Aligning...",Color.DodgerBlue)},
             {StateType.SETMOVINGPARTS,new StateData("Setting Moving Parts",Color.DodgerBlue)},
             {StateType.FINISHED,new StateData("Mining Finished",Color.Lime)},
-            {StateType.ALIGNINGSTARTINGPOSITION,new StateData("Alingning Starting Position",Color.Magenta)},
+            {StateType.ALIGNINGSTARTINGPOSITION,new StateData("Aligning Starting Position...",Color.Magenta)},
             {StateType.DIGGING,new StateData("Digging...",Color.Tomato)},
             {StateType.INIT,new StateData("Initializing...",Color.Tomato)}
         };
@@ -887,7 +918,7 @@ public void Init(){
 
     messageScreen = new MessageScreen(config,mainState);
 
-    scriptController = new ScriptController(messageScreen);
+    scriptController = new ScriptController(messageScreen,mainState);
     mainController = new PlatformController(config,messageScreen);
     softController = new SoftController(config,mainState,messageScreen);
 
