@@ -1,8 +1,10 @@
-//Automatic Mining Platform v3.712 by Kezeslabas                        Updated up until Space Engineers v1.193.1
+//Automatic Mining Platform v3.713 by Kezeslabas                        Updated up until Space Engineers v1.198.027
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //  This script manages a Rotor, Pistons and Drills to create an Automatic Mining Platform.
 //  It has multiple additional features to allow the build of advanced mining systems.
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Hotfix (v3.713): Added safety net and warnings when ShareInertiaTensor option is missing for mechanical blocks
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Hotfix (v3.712): Fixed the issue with the Antenna, and the Transmitting Progression feature is enabled again.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -546,22 +548,30 @@ public void Main(string argument, UpdateType updateSource)
         {
             if(use_dynamic_rotor_tensor)
             {
-                if(tensor_counter>=40)
-                {
-                    tensor_counter=0;
-                    if(!rotor.GetValueBool("ShareInertiaTensor"))
+                try{
+                    if(tensor_counter>=40)
                     {
-                        rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                        tensor_counter=0;
+                        if(!rotor.GetValueBool("ShareInertiaTensor"))
+                        {
+                            rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                        }
                     }
-                }
-                else if(tensor_counter==1)
-                {
-                     if(rotor.GetValueBool("ShareInertiaTensor"))
+                    else if(tensor_counter==1)
                     {
-                        rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                        if(rotor.GetValueBool("ShareInertiaTensor"))
+                        {
+                            rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                        }
                     }
+                    tensor_counter++;
                 }
-                tensor_counter++;
+                catch{
+                    Echo("--Warning!");
+                    Echo("Dynamic Rotor Tensor can't be applied!");
+                    Echo("--Pls disable in the config:");
+                    Echo("'Use Dynamic Rotor Inertia Tensor'");
+                }
             }
             if(run)
             {
@@ -681,9 +691,21 @@ public void Main(string argument, UpdateType updateSource)
                         Runtime.UpdateFrequency = UpdateFrequency.Update100;
                         lcd_color=Color.DodgerBlue;
 
-                        if(use_dynamic_rotor_tensor && rotor.GetValueBool("ShareInertiaTensor"))
+                        if(use_dynamic_rotor_tensor)
                         {
-                            rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                            try{
+                                if(rotor.GetValueBool("ShareInertiaTensor"))
+                                {
+                                    rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                                }
+
+                            }
+                            catch{
+                                Echo("Dynamic Rotor Tensor Warning!");
+                                Echo("Dynamic Rotor Tensor can't be applied!");
+                                Echo("--Pls disable in the config:");
+                                Echo("'Use Dynamic Rotor Inertia Tensor'");
+                            }
                         }
                     }
                 }
@@ -706,9 +728,20 @@ public void Main(string argument, UpdateType updateSource)
                     run=pause_moving_parts();
                     status="Paused";
                     save_data();
-                    if(use_dynamic_rotor_tensor && !rotor.GetValueBool("ShareInertiaTensor"))
+                    if(use_dynamic_rotor_tensor)
                     {
-                        rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                        try{
+                            if(!rotor.GetValueBool("ShareInertiaTensor"))
+                            {
+                                rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                            }
+                        }
+                        catch{
+                            Echo("Dynamic Rotor Tensor Warning!");
+                            Echo("Dynamic Rotor Tensor can't be applied!");
+                            Echo("--Pls disable in the config:");
+                            Echo("'Use Dynamic Rotor Inertia Tensor'");
+                        }
                     }
                 }
                 else
@@ -1319,9 +1352,20 @@ public void start_system()
                     timer.Enabled=true;
                     timer.GetActionWithName("Start").Apply(timer);
                 }
-                if(use_dynamic_rotor_tensor && !rotor.GetValueBool("ShareInertiaTensor"))
+                if(use_dynamic_rotor_tensor)
                 {
-                    rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                    try{
+                        if(!rotor.GetValueBool("ShareInertiaTensor"))
+                        {
+                            rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                        }
+                    }
+                    catch{
+                        Echo("Dynamic Rotor Tensor Warning!");
+                        Echo("Dynamic Rotor Tensor can't be applied!");
+                        Echo("--Pls disable in the config:");
+                        Echo("'Use Dynamic Rotor Inertia Tensor'");
+                    }
                 }
                 run=false;
                 Runtime.UpdateFrequency = UpdateFrequency.None;
@@ -1434,17 +1478,20 @@ public bool refresh_components()
             }
             if(share_inertia_tensor)
             {
-                if(!piston.GetValueBool("ShareInertiaTensor"))
-                {
-                    piston.GetActionWithName("ShareInertiaTensor").Apply(piston);
+                try{
+                    if(!piston.GetValueBool("ShareInertiaTensor"))
+                    {
+                        piston.GetActionWithName("ShareInertiaTensor").Apply(piston);
+                    }
                 }
-            }
-            else
-            {
-                if(piston.GetValueBool("ShareInertiaTensor"))
-                {
-                    piston.GetActionWithName("ShareInertiaTensor").Apply(piston);
+                catch{
+                    Echo("--Warning!");
+                    Echo("ShareInertiaTensor option missing for:");
+                    Echo(""+piston.CustomName);
+                    Echo("--Pls disable in the config:");
+                    Echo("'Use Share Inertia Tensor'");
                 }
+
             }
         }
         else if(a is IMyShipDrill)
@@ -1499,16 +1546,18 @@ public bool refresh_components()
             rotor = a as IMyMotorAdvancedStator;
             if(share_inertia_tensor)
             {
-                if(!rotor.GetValueBool("ShareInertiaTensor"))
-                {
-                    rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                try{
+                    if(!rotor.GetValueBool("ShareInertiaTensor"))
+                    {
+                        rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                    }
                 }
-            }
-            else
-            {
-                if(rotor.GetValueBool("ShareInertiaTensor"))
-                {
-                    rotor.GetActionWithName("ShareInertiaTensor").Apply(rotor);
+                catch{
+                    Echo("--Warning!");
+                    Echo("ShareInertiaTensor option missing for:");
+                    Echo(""+rotor.CustomName);
+                    Echo("--Pls disable in the config:");
+                    Echo("'Use Share Inertia Tensor'");
                 }
             }
             i++;
