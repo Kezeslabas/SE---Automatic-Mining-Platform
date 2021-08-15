@@ -596,7 +596,7 @@ public class ScriptController{
     }
 
     private void RunReset(){
-        mainState.setState(StateType.RESET);
+        // mainState.setState(StateType.RESET);
     }
 
     private void RunDig(){
